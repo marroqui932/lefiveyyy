@@ -230,6 +230,37 @@ button{font-family:inherit;}
 .tl-scorer{font-weight:700;font-size:14.5px;}
 .tl-assist{font-size:12.5px;color:var(--text-dim);margin-top:2px;}
 
+/* ---------- Fil de match : buts équipe A à gauche / équipe B à droite ---------- */
+.match-feed{position:relative;}
+.match-feed::before{content:"";position:absolute;left:50%;top:4px;bottom:4px;width:2px;background:var(--border);transform:translateX(-50%);}
+.feed-row{display:grid;grid-template-columns:1fr 34px 1fr;align-items:center;gap:10px;margin-bottom:14px;position:relative;}
+.feed-side{min-width:0;display:flex;}
+.feed-left{justify-content:flex-end;}
+.feed-right{justify-content:flex-start;}
+.feed-center{
+  width:30px;height:30px;border-radius:50%;background:var(--surface);border:2px solid var(--primary);
+  display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;z-index:1;
+}
+.feed-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 14px;
+  display:inline-flex;flex-direction:column;gap:4px;max-width:100%;min-width:150px;
+}
+.feed-card.team-a{border-right:3px solid var(--accent);align-items:flex-end;text-align:right;}
+.feed-card.team-b{border-left:3px solid var(--accent-2);align-items:flex-start;text-align:left;}
+.feed-card.team-none{border-left:3px solid var(--text-faint);align-items:flex-start;text-align:left;}
+.feed-score-chip{font-size:11px;font-weight:800;color:var(--text-dim);background:var(--surface-2);border-radius:6px;padding:2px 7px;}
+.feed-scorer{font-weight:700;font-size:14px;}
+.feed-assist{font-size:12px;color:var(--text-dim);}
+@media(max-width:700px){
+  .match-feed::before{display:none;}
+  .feed-row{display:block;margin-bottom:10px;}
+  .feed-center{display:none;}
+  .feed-side{display:block !important;justify-content:flex-start !important;}
+  .feed-left:empty, .feed-right:empty{display:none !important;}
+  .feed-card{width:100%;text-align:left !important;align-items:flex-start !important;}
+  .feed-card.team-a{border-right:none;border-left:3px solid var(--accent);}
+}
+
 /* profile header */
 .profile-head{display:flex;gap:22px;align-items:center;flex-wrap:wrap;}
 .profile-head .avatar{width:132px;height:132px;font-size:44px;}
@@ -1293,20 +1324,23 @@ function viewFiveDetail(fiveId){
   ${noTeam.length? `<div class="notice" style="margin-top:14px;">${noTeam.length} joueur(s) sans équipe assignée : ${noTeam.map(p=>esc(playerName(p.player))).join(', ')}</div>` : ''}
 
   <div class="section-title">⚽ Buts du match (${goalsTL.length})</div>
-  ${goalsTL.length? `<div class="timeline">
+  ${goalsTL.length? `<div class="match-feed">
     ${goalsTL.map(g=>{
       const scorer=getPlayer(g.scorerId);
       const assister=g.assisterId? getPlayer(g.assisterId) : null;
       const video=videoForGoal(g.id);
-      return `<div class="tl-item">
-        <div class="tl-card">
-          <div class="tl-score">${g.before.a}-${g.before.b} → ${g.after.a}-${g.after.b}</div>
-          <div class="tl-body">
-            <div class="tl-scorer">⚽ ${esc(playerName(scorer))}</div>
-            <div class="tl-assist">${assister? '🎯 '+esc(playerName(assister)) : '🎯 Sans passe décisive'}</div>
-          </div>
-          ${video? `<button class="play-btn" onclick="playVideo('${video.id}')">▶️ Voir le but</button>` : ''}
-        </div>
+      const isA=g.team==='A';
+      const isB=g.team==='B';
+      const cardHtml=`<div class="feed-card ${isA?'team-a':isB?'team-b':'team-none'}">
+        <div class="feed-score-chip">${g.after.a}-${g.after.b}</div>
+        <div class="feed-scorer">⚽ ${esc(playerName(scorer))}</div>
+        <div class="feed-assist">${assister? '🎯 '+esc(playerName(assister)) : '🎯 Sans passe décisive'}</div>
+        ${video? `<button class="play-btn" onclick="playVideo('${video.id}')">▶️ Voir le but</button>` : ''}
+      </div>`;
+      return `<div class="feed-row">
+        <div class="feed-side feed-left">${isA? cardHtml : ''}</div>
+        <div class="feed-center">⚽</div>
+        <div class="feed-side feed-right">${!isA? cardHtml : ''}</div>
       </div>`;
     }).join('')}
   </div>` : emptyState('⚽','Aucun but enregistré pour ce Five')}
