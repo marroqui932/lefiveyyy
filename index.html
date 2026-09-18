@@ -1786,7 +1786,10 @@ function viewAdmin(){
     `;
   }
   return `
-  <div class="page-header"><div><h1>🗃️ Données</h1><div class="page-sub">Gestion complète - ajout, modification, suppression</div></div></div>
+  <div class="page-header">
+    <div><h1>🗃️ Données</h1><div class="page-sub">Gestion complète - ajout, modification, suppression</div></div>
+    <a href="https://github.com/marroqui932/lefiveyyy/edit/main/index.html" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">✏️ Modifier le code sur GitHub</a>
+  </div>
   <div class="notice">☁️ Les données sont stockées en ligne sur <b>Supabase</b> et visibles par tous les visiteurs. Seul ton compte connecté peut les modifier.</div>
   <div class="tabs">
     <div class="tab ${adminTab==='five'?'active':''}" onclick="adminTab='five';render();">🏟️ Five</div>
