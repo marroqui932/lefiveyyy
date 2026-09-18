@@ -260,6 +260,10 @@ button{font-family:inherit;}
 .duo-row:hover{border-color:var(--accent);}
 .duo-arrow{color:var(--text-faint);}
 .duo-count{margin-left:auto;font-weight:800;color:var(--accent);}
+.duo-row-combined{display:flex;flex-direction:column;align-items:stretch;gap:8px;}
+.duo-combined-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.duo-combined-sub{display:flex;gap:18px;flex-wrap:wrap;padding-top:8px;border-top:1px solid var(--border-soft);font-size:12.5px;color:var(--text-dim);}
+.duo-combined-sub b{color:var(--text);}
 
 /* modal */
 .modal-backdrop{position:fixed;inset:0;background:rgba(4,7,14,.7);backdrop-filter:blur(3px);z-index:100;display:flex;align-items:flex-start;justify-content:center;padding:30px 14px;overflow-y:auto;}
@@ -866,18 +870,25 @@ function rankPlayers(statKey,filter){
   return rows.map((r,i)=>{ if(r.value!==prev){ rank=i+1; prev=r.value; } return Object.assign({},r,{rank}); });
 }
 function duosData(){
-  const map={};
+  const directional={};
   for(const g of STATE.goals){
     if(g.assisterId){
       const key=g.assisterId+'|'+g.scorerId;
-      map[key]=(map[key]||0)+1;
+      directional[key]=(directional[key]||0)+1;
     }
   }
-  const list=Object.entries(map).map(([k,count])=>{
-    const [assisterId,scorerId]=k.split('|');
-    return {assisterId,scorerId,count};
-  });
-  list.sort((a,b)=>b.count-a.count);
+  const pairs={};
+  for(const key in directional){
+    const [assisterId,scorerId]=key.split('|');
+    if(assisterId===scorerId) continue;
+    const sorted=[assisterId,scorerId].sort();
+    const pairKey=sorted[0]+'|'+sorted[1];
+    if(!pairs[pairKey]) pairs[pairKey]={playerA:sorted[0], playerB:sorted[1], aToB:0, bToA:0};
+    if(assisterId===sorted[0]) pairs[pairKey].aToB=directional[key];
+    else pairs[pairKey].bToA=directional[key];
+  }
+  const list=Object.values(pairs).map(p=>Object.assign({},p,{total:p.aToB+p.bToA}));
+  list.sort((a,b)=>b.total-a.total);
   return list;
 }
 function assistsBreakdownForScorer(playerId){
@@ -889,6 +900,34 @@ function assistsBreakdownForScorer(playerId){
     else none++;
   }
   return {map, none, total:goals.length};
+}
+/* Face-à-face : pour chaque adversaire déjà affronté (équipes opposées
+   dans un même Five, résultat connu), le bilan V/N/D de playerId. */
+function headToHeadStats(playerId){
+  const myParts=STATE.participations.filter(p=>p.playerId===playerId && p.teamId);
+  const opponents={};
+  for(const myPart of myParts){
+    const result=playerResultInFive(playerId, myPart.fiveId);
+    if(!result) continue;
+    const oppParts=STATE.participations.filter(p=>p.fiveId===myPart.fiveId && p.teamId && p.teamId!==myPart.teamId && p.playerId!==playerId);
+    for(const opp of oppParts){
+      if(!opponents[opp.playerId]) opponents[opp.playerId]={wins:0,draws:0,losses:0,matches:0};
+      const o=opponents[opp.playerId];
+      o.matches++;
+      if(result==='win') o.wins++; else if(result==='draw') o.draws++; else o.losses++;
+    }
+  }
+  return Object.entries(opponents).map(([opponentId,s])=>Object.assign({opponentId, winPct:Math.round(s.wins/s.matches*100)}, s));
+}
+function nemesisAndFavoriteTarget(playerId){
+  const h2h=headToHeadStats(playerId);
+  if(!h2h.length) return {nemesis:[], favoriteTarget:[]};
+  const minPct=Math.min(...h2h.map(x=>x.winPct));
+  const maxPct=Math.max(...h2h.map(x=>x.winPct));
+  return {
+    nemesis: h2h.filter(x=>x.winPct===minPct),
+    favoriteTarget: h2h.filter(x=>x.winPct===maxPct)
+  };
 }
 function computeRecords(){
   const played=STATE.players.filter(p=>playerFiveIds(p.id).length>0);
@@ -1324,11 +1363,39 @@ function personalRecordRow(icon,label,value,five,unit,colorKey){
     </div>
   </div>`;
 }
+function rivalRow(icon,label,entries,colorKey){
+  const c=STAT_COLORS[colorKey]||STAT_COLORS.gold;
+  if(!entries || !entries.length){
+    return `<div class="record-row">
+      <div class="record-label"><div class="record-icon" style="--stat-color:${c.color};--stat-glow:${c.glow};">${icon}</div>${label}</div>
+      <div class="page-sub">Pas assez de matchs avec équipes connues face à un adversaire</div>
+    </div>`;
+  }
+  return `<div class="record-row">
+    <div class="record-label"><div class="record-icon" style="--stat-color:${c.color};--stat-glow:${c.glow};">${icon}</div>${label}</div>
+    <div class="record-right">
+      <div class="record-holders">
+        ${entries.map(e=>{
+          const opp=getPlayer(e.opponentId);
+          return `<div class="record-holder" onclick="navigate('player/${e.opponentId}')">
+            ${avatarHTML(opp,40)}
+            <div class="rh-info">
+              <div class="rh-name">${esc(playerName(opp))}</div>
+              <div class="rh-five">${e.wins}V ${e.draws}N ${e.losses}D</div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div class="record-val">${entries[0].winPct}<span class="record-unit">%</span></div>
+    </div>
+  </div>`;
+}
 // ---------- Player profile ----------
 function viewPlayerProfile(playerId){
   const p=getPlayer(playerId);
   if(!p) return emptyState('❓','Joueur introuvable');
   const fs=playerFullStats(playerId);
+  const rivals=nemesisAndFavoriteTarget(playerId);
 
   const resultBadge=(result)=>{
     if(!result) return '';
@@ -1445,6 +1512,13 @@ function viewPlayerProfile(playerId){
     ${personalRecordRow('⭐','Meilleur Five (G+A)', fs.bestFiveGA, fs.bestFiveGAFive, 'G+A', 'purple')}
   </div>
 
+  <div class="section-title">😈 Face-à-face</div>
+  <div class="card records-card">
+    ${rivalRow('💀','Bête noire (adversaire le + difficile)', rivals.nemesis, 'red')}
+    ${rivalRow('🎯','Cible favorite (adversaire dominé)', rivals.favoriteTarget, 'green')}
+  </div>
+  <div class="hint" style="margin:-6px 0 0 4px;">Calculé sur les Five où les équipes des deux joueurs sont connues. Le pourcentage affiché est le taux de victoire de ${esc(p.name)} face à cet adversaire.</div>
+
   <div class="section-title">📜 Historique (${fs.perFive.length})</div>
   ${historyRows || emptyState('📜','Aucun Five joué')}
 
@@ -1494,25 +1568,31 @@ function rankListHTML(rows,decimals){
 function viewDuos(){
   const duos=duosData();
   return `
-  <div class="page-header"><div><h1>🤝 Duos passeur → buteur</h1><div class="page-sub">${duos.length} relation${duos.length>1?'s':''} détectée${duos.length>1?'s':''}</div></div></div>
+  <div class="page-header"><div><h1>🤝 Duos passeur ⇄ buteur</h1><div class="page-sub">${duos.length} relation${duos.length>1?'s':''} détectée${duos.length>1?'s':''}</div></div></div>
   ${duos.length? duos.map(d=>{
-    const a=getPlayer(d.assisterId), s=getPlayer(d.scorerId);
-    return `<div class="duo-row" style="margin-bottom:10px;" onclick="navigate('duo/${d.assisterId}/${d.scorerId}')">
-      ${avatarHTML(a,32)}<span style="font-weight:700;">${esc(playerName(a))}</span>
-      <span class="duo-arrow">→</span>
-      ${avatarHTML(s,32)}<span style="font-weight:700;">${esc(playerName(s))}</span>
-      <span class="duo-count">${d.count} passe${d.count>1?'s':''} déc.</span>
+    const a=getPlayer(d.playerA), b=getPlayer(d.playerB);
+    return `<div class="duo-row duo-row-combined" style="margin-bottom:10px;cursor:pointer;" onclick="navigate('duo/${d.playerA}/${d.playerB}')">
+      <div class="duo-combined-head">
+        ${avatarHTML(a,32)}<span style="font-weight:700;">${esc(playerName(a))}</span>
+        <span class="duo-arrow">⇄</span>
+        ${avatarHTML(b,32)}<span style="font-weight:700;">${esc(playerName(b))}</span>
+        <span class="duo-count">${d.total} passe${d.total>1?'s':''} au total</span>
+      </div>
+      <div class="duo-combined-sub">
+        <span>${esc(playerName(a))} → ${esc(playerName(b))} : <b>${d.aToB}</b></span>
+        <span>${esc(playerName(b))} → ${esc(playerName(a))} : <b>${d.bToA}</b></span>
+      </div>
     </div>`;
   }).join('') : emptyState('🤝','Aucun duo pour le moment','Les duos apparaissent dès qu\'un but est assisté.')}
   `;
 }
-function viewDuoDetail(assisterId,scorerId){
-  const a=getPlayer(assisterId), s=getPlayer(scorerId);
-  const goals=STATE.goals.filter(g=>g.assisterId===assisterId && g.scorerId===scorerId);
-  return `
-  <div class="page-header"><div><h1>🤝 ${esc(playerName(a))} → ${esc(playerName(s))}</h1><div class="page-sub">${goals.length} but${goals.length>1?'s':''} sur passe de ${esc(playerName(a))}</div></div>
-  <a href="#/duos" class="btn btn-ghost btn-sm">← Retour aux duos</a></div>
-  ${goals.map(g=>{
+function viewDuoDetail(playerAId,playerBId){
+  const a=getPlayer(playerAId), b=getPlayer(playerBId);
+  const goalsAtoB=STATE.goals.filter(g=>g.assisterId===playerAId && g.scorerId===playerBId);
+  const goalsBtoA=STATE.goals.filter(g=>g.assisterId===playerBId && g.scorerId===playerAId);
+  const total=goalsAtoB.length+goalsBtoA.length;
+
+  function goalCard(g){
     const five=getFive(g.fiveId);
     const wScore=fiveGoalsWithScore(g.fiveId).find(x=>x.id===g.id);
     const video=videoForGoal(g.id);
@@ -1521,7 +1601,17 @@ function viewDuoDetail(assisterId,scorerId){
       <div class="tl-body"><div class="tl-scorer">${wScore.before.a}-${wScore.before.b} → ${wScore.after.a}-${wScore.after.b}</div><div class="tl-assist">${five? fmtDateShort(five.date):''}</div></div>
       ${video? `<button class="play-btn" onclick="playVideo('${video.id}')">▶️ Vidéo</button>` : ''}
     </div>`;
-  }).join('') || emptyState('⚽','Aucun but trouvé')}
+  }
+
+  return `
+  <div class="page-header"><div><h1>🤝 ${esc(playerName(a))} ⇄ ${esc(playerName(b))}</h1><div class="page-sub">${total} but${total>1?'s':''} au total sur passe décisive entre les deux</div></div>
+  <a href="#/duos" class="btn btn-ghost btn-sm">← Retour aux duos</a></div>
+
+  <div class="section-title">${esc(playerName(a))} → ${esc(playerName(b))} (${goalsAtoB.length})</div>
+  ${goalsAtoB.length? goalsAtoB.map(goalCard).join('') : emptyState('⚽','Aucun but')}
+
+  <div class="section-title">${esc(playerName(b))} → ${esc(playerName(a))} (${goalsBtoA.length})</div>
+  ${goalsBtoA.length? goalsBtoA.map(goalCard).join('') : emptyState('⚽','Aucun but')}
   `;
 }
 
