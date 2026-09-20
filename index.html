@@ -662,8 +662,8 @@ function fiveToDb(f){ return { id:f.id, date:f.date, time_start:f.timeStart||nul
 function participationFromDb(r){ return { id:r.id, fiveId:r.five_id, playerId:r.player_id, teamId:r.team_id||null }; }
 function participationToDb(p){ return { id:p.id, five_id:p.fiveId, player_id:p.playerId, team_id:p.teamId||null }; }
 
-function goalFromDb(r){ return { id:r.id, fiveId:r.five_id, order:r.goal_order, scorerId:r.scorer_id, assisterId:r.assister_id||null, videoUrl:r.video_url||null, videoFilename:r.video_filename||null, videoPath:r.video_path||null, videoSize:r.video_size||0, createdAt:r.created_at? new Date(r.created_at).getTime():Date.now() }; }
-function goalToDb(g){ return { id:g.id, five_id:g.fiveId, goal_order:g.order, scorer_id:g.scorerId, assister_id:g.assisterId||null, video_url:g.videoUrl||null, video_filename:g.videoFilename||null, video_path:g.videoPath||null, video_size:g.videoSize||0 }; }
+function goalFromDb(r){ return { id:r.id, fiveId:r.five_id, order:r.goal_order, scorerId:r.scorer_id, assisterId:r.assister_id||null, isOwnGoal:!!r.is_own_goal, videoUrl:r.video_url||null, videoFilename:r.video_filename||null, videoPath:r.video_path||null, videoSize:r.video_size||0, createdAt:r.created_at? new Date(r.created_at).getTime():Date.now() }; }
+function goalToDb(g){ return { id:g.id, five_id:g.fiveId, goal_order:g.order, scorer_id:g.scorerId, assister_id:g.isOwnGoal? null : (g.assisterId||null), is_own_goal:!!g.isOwnGoal, video_url:g.videoUrl||null, video_filename:g.videoFilename||null, video_path:g.videoPath||null, video_size:g.videoSize||0 }; }
 
 /* ---------------- Repositories ----------------
    Point d'accès unique aux données. Ici elles parlent à Supabase. */
@@ -781,7 +781,9 @@ function fiveGoalsWithScore(fiveId){
   const goals=goalsForFive(fiveId);
   return goals.map(g=>{
     const before={a,b};
-    const team=teamOfPlayerInFive(fiveId,g.scorerId);
+    const scorerTeam=teamOfPlayerInFive(fiveId,g.scorerId);
+    // un CSC compte pour l'équipe adverse du buteur
+    const team = g.isOwnGoal ? (scorerTeam==='A'?'B':scorerTeam==='B'?'A':null) : scorerTeam;
     if(team==='A') a++; else if(team==='B') b++;
     const after={a,b};
     return Object.assign({},g,{before,after,team});
@@ -800,9 +802,10 @@ function playerFiveIds(playerId){
 }
 function playerStatsForFive(playerId,fiveId){
   const goals=goalsForFive(fiveId);
-  const g=goals.filter(x=>x.scorerId===playerId).length;
-  const as=goals.filter(x=>x.assisterId===playerId).length;
-  return {goals:g,assists:as,ga:g+as};
+  const g=goals.filter(x=>x.scorerId===playerId && !x.isOwnGoal).length;
+  const og=goals.filter(x=>x.scorerId===playerId && x.isOwnGoal).length;
+  const as=goals.filter(x=>x.assisterId===playerId && !x.isOwnGoal).length;
+  return {goals:g,assists:as,ga:g+as,ownGoals:og};
 }
 function playerResultInFive(playerId,fiveId){
   const team=teamOfPlayerInFive(fiveId,playerId);
@@ -815,16 +818,16 @@ function playerResultInFive(playerId,fiveId){
 function playerFullStats(playerId){
   const fiveIds=[...new Set(playerFiveIds(playerId))];
   const list=fiveIds.map(id=>getFive(id)).filter(Boolean).sort((a,b)=>(a.date||'').localeCompare(b.date||'')||(a.createdAt||0)-(b.createdAt||0));
-  let goals=0, assists=0, wins=0, draws=0, losses=0, withResult=0, goalsWithAssist=0, goalsNoAssist=0;
+  let goals=0, assists=0, wins=0, draws=0, losses=0, withResult=0, goalsWithAssist=0, goalsNoAssist=0, ownGoals=0;
   const perFive=[];
   for(const five of list){
     const s=playerStatsForFive(playerId,five.id);
-    goals+=s.goals; assists+=s.assists;
+    goals+=s.goals; assists+=s.assists; ownGoals+=s.ownGoals;
     const result=playerResultInFive(playerId,five.id);
     if(result){ withResult++; if(result==='win') wins++; else if(result==='draw') draws++; else losses++; }
-    const goalsOfPlayer=goalsForFive(five.id).filter(g=>g.scorerId===playerId);
+    const goalsOfPlayer=goalsForFive(five.id).filter(g=>g.scorerId===playerId && !g.isOwnGoal);
     goalsOfPlayer.forEach(g=>{ if(g.assisterId) goalsWithAssist++; else goalsNoAssist++; });
-    perFive.push({five,goals:s.goals,assists:s.assists,ga:s.goals+s.assists,result});
+    perFive.push({five,goals:s.goals,assists:s.assists,ga:s.goals+s.assists,ownGoals:s.ownGoals,result});
   }
   const matches=list.length;
   const ga=goals+assists;
@@ -848,7 +851,7 @@ function playerFullStats(playerId){
   const totalFivesCount=STATE.fives.length;
   const participationRate=totalFivesCount? Math.round(matches/totalFivesCount*100):null;
   return {
-    matches,goals,assists,ga,wins,draws,losses,withResult,winPct,noLossPct,
+    matches,goals,assists,ga,wins,draws,losses,withResult,winPct,noLossPct,ownGoals,
     avgGoals:matches?goals/matches:0, avgAssists:matches?assists/matches:0, avgGA:matches?ga/matches:0,
     last5Goals:sum(last5,'goals'), last5Assists:sum(last5,'assists'), last5GA:sum(last5,'ga'),
     last10Goals:sum(last10,'goals'), last10Assists:sum(last10,'assists'), last10GA:sum(last10,'ga'),
@@ -1333,13 +1336,13 @@ function viewFiveDetail(fiveId){
       const isB=g.team==='B';
       const cardHtml=`<div class="feed-card ${isA?'team-a':isB?'team-b':'team-none'}">
         <div class="feed-score-chip">${g.after.a}-${g.after.b}</div>
-        <div class="feed-scorer">⚽ ${esc(playerName(scorer))}</div>
-        <div class="feed-assist">${assister? '🎯 '+esc(playerName(assister)) : '🎯 Sans passe décisive'}</div>
+        <div class="feed-scorer">${g.isOwnGoal? '🥅 CSC '+esc(playerName(scorer)) : '⚽ '+esc(playerName(scorer))}</div>
+        <div class="feed-assist">${g.isOwnGoal? 'But contre son camp' : (assister? '🎯 '+esc(playerName(assister)) : '🎯 Sans passe décisive')}</div>
         ${video? `<button class="play-btn" onclick="playVideo('${video.id}')">▶️ Voir le but</button>` : ''}
       </div>`;
       return `<div class="feed-row">
         <div class="feed-side feed-left">${isA? cardHtml : ''}</div>
-        <div class="feed-center">⚽</div>
+        <div class="feed-center">${g.isOwnGoal?'🥅':'⚽'}</div>
         <div class="feed-side feed-right">${!isA? cardHtml : ''}</div>
       </div>`;
     }).join('')}
@@ -1458,13 +1461,16 @@ function viewPlayerProfile(playerId){
 
   // Tous les buts du joueur (chronologique, plus récent en premier)
   let myGoals=[];
+  let myOwnGoals=[];
   fs.perFive.forEach(pf=>{
     goalsForFive(pf.five.id).filter(g=>g.scorerId===playerId).forEach(g=>{
       const wScore=fiveGoalsWithScore(pf.five.id).find(x=>x.id===g.id);
-      myGoals.push({goal:g, five:pf.five, wScore});
+      if(g.isOwnGoal) myOwnGoals.push({goal:g, five:pf.five, wScore});
+      else myGoals.push({goal:g, five:pf.five, wScore});
     });
   });
   myGoals.reverse();
+  myOwnGoals.reverse();
 
   // Toutes les passes décisives du joueur (chronologique, plus récent en premier)
   let myAssistEvents=[];
@@ -1480,7 +1486,8 @@ function viewPlayerProfile(playerId){
     const video=videoForGoal(m.goal.id);
     const scorer=getPlayer(m.goal.scorerId);
     const assister=m.goal.assisterId? getPlayer(m.goal.assisterId):null;
-    const subLine = mode==='goals'
+    const subLine = mode==='owngoal' ? '🥅 But contre son camp'
+      : mode==='goals'
       ? (assister? '🎯 Assisté par '+esc(assister.name) : '🎯 Sans passe décisive')
       : ('⚽ But de '+esc(playerName(scorer)));
     return `<div class="tl-card" style="margin-bottom:8px;">
@@ -1558,6 +1565,11 @@ function viewPlayerProfile(playerId){
 
   <div class="section-title">⚽ Mes buts (${myGoals.length})</div>
   ${myGoals.length? myGoals.map(m=>eventCard(m,'goals')).join('') : emptyState('⚽','Aucun but enregistré')}
+
+  ${myOwnGoals.length? `
+  <div class="section-title">🥅 Buts contre son camp (${myOwnGoals.length})</div>
+  ${myOwnGoals.map(m=>eventCard(m,'owngoal')).join('')}
+  ` : ''}
 
   <div class="section-title">🎯 Mes passes décisives (${myAssistEvents.length})</div>
   ${myAssistEvents.length? myAssistEvents.map(m=>eventCard(m,'assists')).join('') : emptyState('🎯','Aucune passe décisive enregistrée')}
@@ -1982,7 +1994,7 @@ function openFiveForm(fiveId){
   const teamB=parts.filter(p=>p.teamId==='B').map(p=>p.playerId);
   const noTeam=parts.filter(p=>!p.teamId).map(p=>p.playerId);
   const goals=fiveId? goalsForFive(fiveId) : [];
-  _fiveFormGoalRows = goals.map(g=>({rowId:uid('row'), goalId:g.id, scorerId:g.scorerId, assisterId:g.assisterId, existingVideo:videoForGoal(g.id)}));
+  _fiveFormGoalRows = goals.map(g=>({rowId:uid('row'), goalId:g.id, scorerId:g.scorerId, assisterId:g.assisterId, isOwnGoal:!!g.isOwnGoal, existingVideo:videoForGoal(g.id)}));
   if(_fiveFormGoalRows.length===0) _fiveFormGoalRows=[];
 
   const allPlayers=[...STATE.players].sort((a,b)=>a.name.localeCompare(b.name));
@@ -2041,7 +2053,13 @@ function renderGoalRowsHTML(){
       <div class="goal-row-head"><span>BUT #${idx+1}</span><button type="button" class="btn btn-sm btn-danger" onclick="removeGoalRow('${row.rowId}')">🗑️</button></div>
       <div class="form-2col">
         <div class="form-row"><label>Buteur</label><select class="input" data-field="scorer" onchange="updateGoalRow('${row.rowId}','scorerId',this.value)"><option value="">- Choisir -</option>${options(row.scorerId)}</select></div>
-        <div class="form-row"><label>Passeur</label><select class="input" data-field="assister" onchange="updateGoalRow('${row.rowId}','assisterId',this.value)"><option value="">🎯 Sans passe décisive</option>${options(row.assisterId)}</select></div>
+        <div class="form-row"><label>Passeur</label><select class="input" data-field="assister" ${row.isOwnGoal?'disabled':''} onchange="updateGoalRow('${row.rowId}','assisterId',this.value)"><option value="">🎯 Sans passe décisive</option>${options(row.isOwnGoal?'':row.assisterId)}</select></div>
+      </div>
+      <div class="form-row">
+        <label style="display:flex;align-items:center;gap:8px;font-weight:500;text-transform:none;letter-spacing:0;">
+          <input type="checkbox" ${row.isOwnGoal?'checked':''} onchange="toggleOwnGoal('${row.rowId}',this.checked)">
+          🥅 But contre son camp (compte pour l'équipe adverse, pas de passeur)
+        </label>
       </div>
       <div class="form-row"><label>Vidéo du but (optionnel)</label>
         <input class="input" type="file" accept="video/*" onchange="onGoalVideoChange('${row.rowId}',this.files[0])">
@@ -2055,11 +2073,18 @@ function renderGoalRowsHTML(){
     </div>
   `).join('') || '<div class="page-sub">Aucun but. Clique sur "+ Ajouter un but".</div>';
 }
+function toggleOwnGoal(rowId, checked){
+  const row=_fiveFormGoalRows.find(r=>r.rowId===rowId);
+  if(!row) return;
+  row.isOwnGoal = checked;
+  if(checked) row.assisterId = '';
+  syncGoalSelects();
+}
 function syncGoalSelects(){
   document.getElementById('goalsContainer').innerHTML=renderGoalRowsHTML();
 }
 function addGoalRow(){
-  _fiveFormGoalRows.push({rowId:uid('row'), goalId:null, scorerId:'', assisterId:'', existingVideo:null});
+  _fiveFormGoalRows.push({rowId:uid('row'), goalId:null, scorerId:'', assisterId:'', isOwnGoal:false, existingVideo:null});
   syncGoalSelects();
 }
 function removeGoalRow(rowId){
@@ -2226,7 +2251,7 @@ async function submitFiveForm(ev,fiveId){
         toast('Impossible d\'envoyer la vidéo (fichier trop volumineux ou hors ligne ?)','error');
       }
     }
-    await GoalsRepo.save({id:goalId, fiveId:five.id, order, scorerId:row.scorerId, assisterId:row.assisterId||null, videoUrl, videoFilename, videoPath, videoSize, createdAt:Date.now()});
+    await GoalsRepo.save({id:goalId, fiveId:five.id, order, scorerId:row.scorerId, assisterId:row.isOwnGoal? null : (row.assisterId||null), isOwnGoal:!!row.isOwnGoal, videoUrl, videoFilename, videoPath, videoSize, createdAt:Date.now()});
   }
   for(const gid of existingGoalIds){
     if(!keptIds.includes(gid)){
@@ -2342,6 +2367,7 @@ window.addGoalRow=addGoalRow;
 window.removeGoalRow=removeGoalRow;
 window.updateGoalRow=updateGoalRow;
 window.onGoalVideoChange=onGoalVideoChange;
+window.toggleOwnGoal=toggleOwnGoal;
 window.compressGoalVideo=compressGoalVideo;
 window.syncGoalSelects=syncGoalSelects;
 window.markRemoveVideo=markRemoveVideo;
