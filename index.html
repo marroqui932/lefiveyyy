@@ -1063,7 +1063,6 @@ function dashboardStats(){
    ROUTER
    ============================================================ */
 const ROUTES=[
-  {key:'dashboard', label:'Dashboard', icon:'🏠'},
   {key:'five', label:'Five', icon:'🏟️'},
   {key:'players', label:'Joueurs', icon:'👥'},
   {key:'rankings', label:'Classements', icon:'🏆'},
@@ -1826,20 +1825,36 @@ function probToOdds(prob,margin){
   return Math.max(1.03,Math.min(50,Math.round(odds*100)/100));
 }
 function generateBettingBoard(){
-  const players=STATE.players.filter(p=>playerFiveIds(p.id).length>0);
+  const players=STATE.players.filter(p=>playerFiveIds(p.id).length>0).map(p=>({p,fs:playerFullStats(p.id)})).filter(x=>x.fs.matches>0);
   const bets=[];
-  players.forEach(p=>{
-    const fs=playerFullStats(p.id);
-    if(fs.matches<1) return;
-    const pGoal=poissonProbAtLeast(fs.avgGoals,1);
-    const pAssist=poissonProbAtLeast(fs.avgAssists,1);
-    const pBrace=poissonProbAtLeast(fs.avgGoals,2);
-    const pBlank=Math.exp(-(fs.avgGoals+fs.avgAssists));
-    bets.push({id:'goal_'+p.id, icon:'⚽', label:`${p.name} marque un but`, odds:probToOdds(pGoal), player:p});
-    bets.push({id:'assist_'+p.id, icon:'🎯', label:`${p.name} délivre une passe décisive`, odds:probToOdds(pAssist), player:p});
-    if(pBrace>0.04) bets.push({id:'brace_'+p.id, icon:'🎩', label:`${p.name} marque un doublé (2 buts ou +)`, odds:probToOdds(pBrace,1.2), player:p});
-    bets.push({id:'blank_'+p.id, icon:'🚫', label:`${p.name} ne marque ni ne passe`, odds:probToOdds(pBlank), player:p});
+
+  // top 3 buteurs en forme -> pari "marque un but"
+  const byGoals=[...players].sort((a,b)=>b.fs.avgGoals-a.fs.avgGoals).slice(0,3);
+  byGoals.forEach(({p,fs})=>{
+    bets.push({id:'goal_'+p.id, icon:'⚽', label:`${p.name} marque un but`, odds:probToOdds(poissonProbAtLeast(fs.avgGoals,1)), player:p});
   });
+
+  // top 2 passeurs en forme -> pari "delivre une passe"
+  const byAssists=[...players].sort((a,b)=>b.fs.avgAssists-a.fs.avgAssists).slice(0,2);
+  byAssists.forEach(({p,fs})=>{
+    bets.push({id:'assist_'+p.id, icon:'🎯', label:`${p.name} délivre une passe décisive`, odds:probToOdds(poissonProbAtLeast(fs.avgAssists,1)), player:p});
+  });
+
+  // le plus prolifique -> pari "doublé"
+  if(byGoals.length){
+    const {p,fs}=byGoals[0];
+    const pBrace=poissonProbAtLeast(fs.avgGoals,2);
+    if(pBrace>0.04) bets.push({id:'brace_'+p.id, icon:'🎩', label:`${p.name} marque un doublé (2 buts ou +)`, odds:probToOdds(pBrace,1.2), player:p});
+  }
+
+  // le moins en forme -> pari (un peu taquin) "ne marque ni ne passe"
+  const byLowGA=[...players].sort((a,b)=>(a.fs.avgGoals+a.fs.avgAssists)-(b.fs.avgGoals+b.fs.avgAssists));
+  if(byLowGA.length){
+    const {p,fs}=byLowGA[0];
+    bets.push({id:'blank_'+p.id, icon:'🚫', label:`${p.name} ne marque ni ne passe`, odds:probToOdds(Math.exp(-(fs.avgGoals+fs.avgAssists))), player:p});
+  }
+
+  // paris généraux
   const totalFives=STATE.fives.length;
   const totalOwnGoals=STATE.goals.filter(g=>g.isOwnGoal).length;
   const cscRate=totalFives? Math.max(0.05,totalOwnGoals/totalFives) : 0.08;
@@ -1848,6 +1863,7 @@ function generateBettingBoard(){
   const avgGoalsPerFive=totalFives? totalRealGoals/totalFives : 8;
   bets.push({id:'over', icon:'🔥', label:`Plus de ${Math.round(avgGoalsPerFive)} buts au total dans le prochain Five`, odds:probToOdds(0.5,1.1)});
   bets.push({id:'draw', icon:'➖', label:'Le prochain Five se termine sur un match nul', odds:probToOdds(0.18,1.1)});
+
   return bets;
 }
 let bettingBoardCache=null;
@@ -1892,7 +1908,7 @@ function viewParis(){
   </div>
 
   <div class="sponsor-banner">
-    <span class="sponsor-tag">SPONSOR OFFICIEL IMAGINAIRE DU FIVE</span>
+    <span class="sponsor-tag">SPONSOR OFFICIEL DU FIVE</span>
     <span class="sponsor-logo">BET<span>CLIC</span></span>
   </div>
 
