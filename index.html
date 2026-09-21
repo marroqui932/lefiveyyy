@@ -440,6 +440,37 @@ table.data-table tr:hover td{background:var(--surface-hover);}
 
 @media(max-width:480px){.cmp-row{grid-template-columns:50px 1fr 50px;gap:8px;}.cmp-val{font-size:13px;}}
 
+/* ---------- Paris sportifs fictifs ---------- */
+.sponsor-banner{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+  background:linear-gradient(135deg,#e30613,#a80510);border-radius:14px;padding:14px 20px;margin-bottom:18px;
+  box-shadow:0 6px 20px rgba(227,6,19,.35);
+}
+.sponsor-tag{color:#ffe5e5;font-size:11px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;}
+.sponsor-logo{color:#fff;font-weight:900;font-size:24px;letter-spacing:.5px;font-style:italic;}
+.sponsor-logo span{color:#1a1a1a;}
+.row-paris{display:grid;grid-template-columns:1fr 320px;gap:18px;align-items:flex-start;}
+@media(max-width:900px){.row-paris{grid-template-columns:1fr;}}
+.paris-board{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;}
+.bet-card{
+  background:linear-gradient(155deg,var(--surface),var(--surface-2));border:1px solid var(--border);border-radius:12px;
+  padding:14px;cursor:pointer;transition:.15s;display:flex;flex-direction:column;gap:6px;
+}
+.bet-card:hover{border-color:var(--gold);transform:translateY(-2px);}
+.bet-card.selected{border-color:var(--primary);background:linear-gradient(155deg,rgba(34,197,94,.12),var(--surface-2));}
+.bet-icon{font-size:20px;}
+.bet-label{font-size:13.5px;font-weight:600;flex:1;line-height:1.3;}
+.bet-odds{font-size:20px;font-weight:900;color:var(--gold);align-self:flex-end;}
+.paris-slip{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;position:sticky;top:80px;}
+.slip-title{font-weight:800;font-size:14px;margin-bottom:12px;}
+.slip-line{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--border-soft);}
+.slip-label{font-size:12.5px;font-weight:600;}
+.slip-odds{font-size:11px;color:var(--text-dim);}
+.slip-total{margin-top:12px;padding-top:12px;border-top:1px solid var(--border-soft);font-size:13.5px;color:var(--text-dim);}
+.slip-total b{color:var(--gold);font-size:16px;}
+.slip-gain{margin-top:8px;font-size:13.5px;color:var(--text-dim);}
+.slip-gain b{color:var(--primary);font-size:16px;}
+
 /* ---------- Five detail : infos + équipes ---------- */
 .five-info-bar{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px;}
 @media(max-width:700px){.five-info-bar{grid-template-columns:1fr;}}
@@ -732,7 +763,7 @@ async function logoutAdmin(){
 /* ============================================================
    ÉTAT EN MÉMOIRE (cache rafraîchi après chaque écriture)
    ============================================================ */
-const STATE={ players:[], fives:[], participations:[], goals:[] };
+const STATE={ players:[], fives:[], participations:[], goals:[], stakeAmount:10 };
 
 async function loadAll(){
   const [players,fives,participations,goals]=await Promise.all([
@@ -1039,6 +1070,7 @@ const ROUTES=[
   {key:'duos', label:'Duos', icon:'🤝'},
   {key:'compare', label:'Comparer', icon:'⚖️'},
   {key:'records', label:'Records', icon:'🏅'},
+  {key:'paris', label:'Paris', icon:'🎰'},
   {key:'admin', label:'Données', icon:'🗃️'}
 ];
 
@@ -1119,6 +1151,7 @@ async function render(){
     else if(r.page==='duo' && r.id && r.extra) view.innerHTML=viewDuoDetail(r.id,r.extra);
     else if(r.page==='compare') view.innerHTML=viewCompare(r.id,r.extra);
     else if(r.page==='records') view.innerHTML=viewRecords();
+    else if(r.page==='paris') view.innerHTML=viewParis();
     else if(r.page==='admin') view.innerHTML=viewAdmin();
     else view.innerHTML=viewDashboard();
   }catch(err){
@@ -1591,7 +1624,7 @@ function viewRankings(){
   return `
   <div class="page-header"><div><h1>🏆 Classements</h1><div class="page-sub">Classements dynamiques calculés automatiquement</div></div></div>
   <div class="filter-pills">${filterOptions.map(o=>`<div class="pill ${o.v===rankingFilter?'active':''}" onclick="rankingFilter='${o.v}';render();">${o.l}</div>`).join('')}</div>
-  <div class="grid grid-3">
+  <div class="grid grid-4">
     <div class="card"><div class="section-title" style="margin-top:0;">⚽ Meilleurs buteurs</div>${rankListHTML(scorers,rankingFilter.startsWith('avg')?2:0)}</div>
     <div class="card"><div class="section-title" style="margin-top:0;">🎯 Meilleurs passeurs</div>${rankListHTML(assisters,rankingFilter.startsWith('avg')?2:0)}</div>
     <div class="card"><div class="section-title" style="margin-top:0;">⭐ Plus décisifs (G+A)</div>${rankListHTML(gaList,rankingFilter.startsWith('avg')?2:0)}</div>
@@ -1777,6 +1810,125 @@ function launchCompare(){
 }
 
 // ---------- Records ----------
+// ---------- Paris sportifs fictifs ----------
+function factorial(n){ let r=1; for(let i=2;i<=n;i++) r*=i; return r; }
+function poissonProbAtLeast(lambda,k){
+  if(lambda<=0) return k===0?1:0;
+  let cum=0;
+  for(let i=0;i<k;i++) cum += Math.pow(lambda,i)*Math.exp(-lambda)/factorial(i);
+  return Math.max(0,Math.min(1,1-cum));
+}
+function probToOdds(prob,margin){
+  margin=margin||1.15;
+  const clamped=Math.max(0.02,Math.min(0.97,prob));
+  let odds=1/(clamped*margin);
+  odds *= (0.92+Math.random()*0.16); // petit aléa pour que les cotes "bougent" à chaque actualisation
+  return Math.max(1.03,Math.min(50,Math.round(odds*100)/100));
+}
+function generateBettingBoard(){
+  const players=STATE.players.filter(p=>playerFiveIds(p.id).length>0);
+  const bets=[];
+  players.forEach(p=>{
+    const fs=playerFullStats(p.id);
+    if(fs.matches<1) return;
+    const pGoal=poissonProbAtLeast(fs.avgGoals,1);
+    const pAssist=poissonProbAtLeast(fs.avgAssists,1);
+    const pBrace=poissonProbAtLeast(fs.avgGoals,2);
+    const pBlank=Math.exp(-(fs.avgGoals+fs.avgAssists));
+    bets.push({id:'goal_'+p.id, icon:'⚽', label:`${p.name} marque un but`, odds:probToOdds(pGoal), player:p});
+    bets.push({id:'assist_'+p.id, icon:'🎯', label:`${p.name} délivre une passe décisive`, odds:probToOdds(pAssist), player:p});
+    if(pBrace>0.04) bets.push({id:'brace_'+p.id, icon:'🎩', label:`${p.name} marque un doublé (2 buts ou +)`, odds:probToOdds(pBrace,1.2), player:p});
+    bets.push({id:'blank_'+p.id, icon:'🚫', label:`${p.name} ne marque ni ne passe`, odds:probToOdds(pBlank), player:p});
+  });
+  const totalFives=STATE.fives.length;
+  const totalOwnGoals=STATE.goals.filter(g=>g.isOwnGoal).length;
+  const cscRate=totalFives? Math.max(0.05,totalOwnGoals/totalFives) : 0.08;
+  bets.push({id:'csc', icon:'🥅', label:'Il y a au moins un CSC dans le prochain Five', odds:probToOdds(cscRate,1.1)});
+  const totalRealGoals=STATE.goals.filter(g=>!g.isOwnGoal).length;
+  const avgGoalsPerFive=totalFives? totalRealGoals/totalFives : 8;
+  bets.push({id:'over', icon:'🔥', label:`Plus de ${Math.round(avgGoalsPerFive)} buts au total dans le prochain Five`, odds:probToOdds(0.5,1.1)});
+  bets.push({id:'draw', icon:'➖', label:'Le prochain Five se termine sur un match nul', odds:probToOdds(0.18,1.1)});
+  return bets;
+}
+let bettingBoardCache=null;
+function getBettingBoard(){ if(!bettingBoardCache) bettingBoardCache=generateBettingBoard(); return bettingBoardCache; }
+function refreshOdds(){ bettingBoardCache=null; render(); toast('Cotes actualisées','success'); }
+let bettingSlip=[];
+function toggleBet(betId){
+  const board=getBettingBoard();
+  const bet=board.find(b=>b.id===betId);
+  if(!bet) return;
+  const idx=bettingSlip.findIndex(b=>b.id===betId);
+  if(idx>=0) bettingSlip.splice(idx,1);
+  else bettingSlip.push(bet);
+  render();
+}
+function updateStake(val){
+  STATE.stakeAmount = Math.max(0, parseFloat(val)||0);
+  const gainEl=document.getElementById('parisGain');
+  if(gainEl){
+    const combined=bettingSlip.reduce((p,b)=>p*b.odds,1);
+    gainEl.textContent=(STATE.stakeAmount*combined).toFixed(2);
+  }
+}
+function validateBet(){
+  if(!bettingSlip.length){ toast('Sélectionne au moins un pari','error'); return; }
+  openModal(`
+    <div style="text-align:center;padding:20px 10px;">
+      <div style="font-size:56px;margin-bottom:10px;">🚫</div>
+      <h2 style="justify-content:center;border:none;">HARAM</h2>
+      <p class="page-sub" style="margin-top:10px;">Ceci est un système de paris entièrement fictif, pour rigoler entre potes.<br>Aucun argent réel, aucun vrai pari - juste pour le fun. 😅</p>
+      <button class="btn btn-primary" style="margin-top:16px;" onclick="closeModal()">J'ai compris</button>
+    </div>
+  `);
+}
+function viewParis(){
+  const board=getBettingBoard();
+  const combined=bettingSlip.reduce((p,b)=>p*b.odds,1);
+  const stake=STATE.stakeAmount||10;
+  return `
+  <div class="page-header"><div><h1>🎰 Paris LeFiveyyy</h1><div class="page-sub">100% fictif - pour le fun entre potes, aucun vrai argent en jeu</div></div>
+    <button class="btn btn-ghost btn-sm" onclick="refreshOdds()">🔄 Actualiser les cotes</button>
+  </div>
+
+  <div class="sponsor-banner">
+    <span class="sponsor-tag">SPONSOR OFFICIEL IMAGINAIRE DU FIVE</span>
+    <span class="sponsor-logo">BET<span>CLIC</span></span>
+  </div>
+
+  <div class="row-paris">
+    <div class="paris-board">
+      ${board.map(b=>{
+        const selected=bettingSlip.some(s=>s.id===b.id);
+        return `<div class="bet-card ${selected?'selected':''}" onclick="toggleBet('${b.id}')">
+          <div class="bet-icon">${b.icon}</div>
+          <div class="bet-label">${esc(b.label)}</div>
+          <div class="bet-odds">${b.odds.toFixed(2)}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="paris-slip">
+      <div class="slip-title">🎟️ Mon coupon</div>
+      ${bettingSlip.length? bettingSlip.map(b=>`
+        <div class="slip-line">
+          <div><div class="slip-label">${esc(b.label)}</div><div class="slip-odds">Cote ${b.odds.toFixed(2)}</div></div>
+          <button class="btn btn-sm btn-ghost" onclick="toggleBet('${b.id}')">✕</button>
+        </div>
+      `).join('') : '<div class="page-sub">Clique sur une cote pour l\'ajouter à ton coupon.</div>'}
+      ${bettingSlip.length? `
+        <div class="slip-total">Cote totale : <b>${combined.toFixed(2)}</b></div>
+        <div class="form-row" style="margin-top:10px;">
+          <label>Mise (fictive, en 🪙)</label>
+          <input class="input" type="number" value="${stake}" min="0" oninput="updateStake(this.value)">
+        </div>
+        <div class="slip-gain">Gain potentiel : <b><span id="parisGain">${(stake*combined).toFixed(2)}</span> 🪙</b></div>
+        <button class="btn btn-primary btn-block" style="margin-top:12px;" onclick="validateBet()">Valider mon pari</button>
+      ` : ''}
+    </div>
+  </div>
+  `;
+}
+
 function viewRecords(){
   const rec=computeRecords();
   function unitFor(value,singular,pluralWord){
@@ -2382,6 +2534,10 @@ window.exportData=exportData;
 window.importData=importData;
 window.render=render;
 window.launchCompare=launchCompare;
+window.refreshOdds=refreshOdds;
+window.toggleBet=toggleBet;
+window.updateStake=updateStake;
+window.validateBet=validateBet;
 window.openLoginModal=openLoginModal;
 window.submitLoginForm=submitLoginForm;
 window.handleLogoutClick=handleLogoutClick;
