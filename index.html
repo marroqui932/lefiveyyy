@@ -520,11 +520,11 @@ table.data-table tr:hover td{background:var(--surface-hover);}
 
 <div class="topbar">
   <div class="topbar-inner">
-    <div class="brand">
+    <a href="#/dashboard" class="brand" style="cursor:pointer;">
       <div class="ball">⚽</div>
       <span class="brand-text">LeFiveyyy</span>
       <span class="page-title-mobile" id="mobilePageTitle"></span>
-    </div>
+    </a>
     <nav class="nav-desktop" id="navDesktop"></nav>
     <div id="authControl"></div>
     <button class="burger" id="burgerBtn">☰</button>
@@ -868,6 +868,7 @@ function statFromFilter(playerId,statKey,filter){
   if(filter==='avg'){
     if(statKey==='goals') return fs.avgGoals;
     if(statKey==='assists') return fs.avgAssists;
+    if(statKey==='wins') return fs.winPct||0;
     return fs.avgGA;
   }
   if(filter==='last5'){
@@ -1586,6 +1587,7 @@ function viewRankings(){
   const scorers=rankPlayers('goals',rankingFilter).filter(r=>r.value>0 || rankingFilter==='total');
   const assisters=rankPlayers('assists',rankingFilter);
   const gaList=rankPlayers('ga',rankingFilter);
+  const winsList=rankPlayers('wins',rankingFilter);
   return `
   <div class="page-header"><div><h1>🏆 Classements</h1><div class="page-sub">Classements dynamiques calculés automatiquement</div></div></div>
   <div class="filter-pills">${filterOptions.map(o=>`<div class="pill ${o.v===rankingFilter?'active':''}" onclick="rankingFilter='${o.v}';render();">${o.l}</div>`).join('')}</div>
@@ -1593,10 +1595,11 @@ function viewRankings(){
     <div class="card"><div class="section-title" style="margin-top:0;">⚽ Meilleurs buteurs</div>${rankListHTML(scorers,rankingFilter.startsWith('avg')?2:0)}</div>
     <div class="card"><div class="section-title" style="margin-top:0;">🎯 Meilleurs passeurs</div>${rankListHTML(assisters,rankingFilter.startsWith('avg')?2:0)}</div>
     <div class="card"><div class="section-title" style="margin-top:0;">⭐ Plus décisifs (G+A)</div>${rankListHTML(gaList,rankingFilter.startsWith('avg')?2:0)}</div>
+    <div class="card"><div class="section-title" style="margin-top:0;">✅ Plus de victoires</div>${rankListHTML(winsList,0,rankingFilter.startsWith('avg')?'%':'')}</div>
   </div>
   `;
 }
-function rankListHTML(rows,decimals){
+function rankListHTML(rows,decimals,suffix){
   if(!rows.length) return emptyState('📉','Aucune donnée');
   return rows.map(r=>{
     let medalClass='', medal=r.rank+'.', ringClass='';
@@ -1605,7 +1608,7 @@ function rankListHTML(rows,decimals){
       <div class="rank-medal ${medalClass}">${medal}</div>
       ${avatarHTML(r.player,34,ringClass)}
       <div style="font-weight:700;font-size:14px;">${esc(r.player.name)}</div>
-      <div class="rank-val">${fmtNum(r.value,decimals)}</div>
+      <div class="rank-val">${fmtNum(r.value,decimals)}${suffix||''}</div>
     </div>`;
   }).join('');
 }
@@ -1714,8 +1717,7 @@ function viewCompare(idA,idB){
   }
 
   const fsA=playerFullStats(a.id), fsB=playerFullStats(b.id);
-  const duoAB=STATE.goals.filter(g=>g.assisterId===a.id&&g.scorerId===b.id).length;
-  const duoBA=STATE.goals.filter(g=>g.assisterId===b.id&&g.scorerId===a.id).length;
+  const h2hA = headToHeadStats(a.id).find(h=>h.opponentId===b.id);
 
   return `
   <div class="page-header"><div><h1>⚖️ Comparateur de joueurs</h1><div class="page-sub">Statistiques calculées automatiquement</div></div></div>
@@ -1750,17 +1752,20 @@ function viewCompare(idA,idB){
     ${compareBar('🎯 Passes / match', fsA.avgAssists, fsB.avgAssists, 2)}
     ${compareBar('⭐ G+A / match', fsA.avgGA, fsB.avgGA, 2)}
     ${compareBar('📈 % Victoires', fsA.winPct||0, fsB.winPct||0, 0, '%')}
-    ${compareBar('🔥 Meilleure série buts', fsA.bestGoalStreak, fsB.bestGoalStreak)}
-    ${compareBar('🔥 Meilleure série G+A', fsA.bestGAStreak, fsB.bestGAStreak)}
     ${compareBar('🏆 Meilleur Five (buts)', fsA.bestFiveGoals, fsB.bestFiveGoals)}
+    ${compareBar('🏆 Meilleur Five (passes)', fsA.bestFiveAssists, fsB.bestFiveAssists)}
+    ${compareBar('🏆 Meilleur Five (G+A)', fsA.bestFiveGA, fsB.bestFiveGA)}
   </div>
 
-  ${(duoAB>0||duoBA>0)? `
-  <div class="section-title">🤝 Duos entre eux</div>
+  ${h2hA? `
+  <div class="section-title">⚔️ Face-à-face direct</div>
   <div class="card">
-    <div class="duo-row" style="margin-bottom:8px;cursor:pointer;" onclick="navigate('duo/${a.id}/${b.id}')">${esc(a.name)} <span class="duo-arrow">→</span> ${esc(b.name)} <span class="duo-count">${duoAB} passe${duoAB>1?'s':''}</span></div>
-    <div class="duo-row" style="cursor:pointer;" onclick="navigate('duo/${b.id}/${a.id}')">${esc(b.name)} <span class="duo-arrow">→</span> ${esc(a.name)} <span class="duo-count">${duoBA} passe${duoBA>1?'s':''}</span></div>
-  </div>` : ''}
+    <div class="hint" style="margin:-2px 0 10px 4px;">Sur les ${h2hA.matches} Five où ${esc(a.name)} et ${esc(b.name)} étaient dans des équipes opposées.</div>
+    ${compareBar('✅ Victoires face à face', h2hA.wins, h2hA.losses)}
+    ${compareBar('➖ Nuls', h2hA.draws, h2hA.draws)}
+  </div>` : `
+  <div class="notice" style="margin-top:16px;">ℹ️ ${esc(a.name)} et ${esc(b.name)} n'ont jamais été dans des équipes opposées (avec équipes connues) - pas de face-à-face direct à afficher.</div>
+  `}
   `;
 }
 function launchCompare(){
