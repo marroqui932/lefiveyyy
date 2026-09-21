@@ -1828,8 +1828,8 @@ function generateBettingBoard(){
   const players=STATE.players.filter(p=>playerFiveIds(p.id).length>0).map(p=>({p,fs:playerFullStats(p.id)})).filter(x=>x.fs.matches>0);
   const bets=[];
 
-  // top 3 buteurs en forme -> pari "marque un but"
-  const byGoals=[...players].sort((a,b)=>b.fs.avgGoals-a.fs.avgGoals).slice(0,3);
+  // top 2 buteurs en forme -> pari "marque un but"
+  const byGoals=[...players].sort((a,b)=>b.fs.avgGoals-a.fs.avgGoals).slice(0,2);
   byGoals.forEach(({p,fs})=>{
     bets.push({id:'goal_'+p.id, icon:'⚽', label:`${p.name} marque un but`, odds:probToOdds(poissonProbAtLeast(fs.avgGoals,1)), player:p});
   });
