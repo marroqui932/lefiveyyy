@@ -894,7 +894,9 @@ function playerResultInFive(playerId,fiveId){
 }
 function playerFullStats(playerId){
   const fiveIds=[...new Set(playerFiveIds(playerId))];
-  const list=fiveIds.map(id=>getFive(id)).filter(Boolean).sort((a,b)=>(a.date||'').localeCompare(b.date||'')||(a.createdAt||0)-(b.createdAt||0));
+  // Un Five "pas encore déroulé" n'est qu'une annonce : il ne doit jamais compter dans les stats
+  // (pas un match joué, pas un résultat, pas de but/passe).
+  const list=fiveIds.map(id=>getFive(id)).filter(Boolean).filter(f=>!isFutureFive(f)).sort((a,b)=>(a.date||'').localeCompare(b.date||'')||(a.createdAt||0)-(b.createdAt||0));
   let goals=0, assists=0, wins=0, draws=0, losses=0, withResult=0, goalsWithAssist=0, goalsNoAssist=0, ownGoals=0;
   const perFive=[];
   for(const five of list){
@@ -925,7 +927,7 @@ function playerFullStats(playerId){
   const bestFiveGoalsFive=perFive.find(x=>x.goals===bestFiveGoals && bestFiveGoals>0)?.five || null;
   const bestFiveAssistsFive=perFive.find(x=>x.assists===bestFiveAssists && bestFiveAssists>0)?.five || null;
   const bestFiveGAFive=perFive.find(x=>x.ga===bestFiveGA && bestFiveGA>0)?.five || null;
-  const totalFivesCount=STATE.fives.length;
+  const totalFivesCount=STATE.fives.filter(f=>!isFutureFive(f)).length;
   const participationRate=totalFivesCount? Math.round(matches/totalFivesCount*100):null;
   return {
     matches,goals,assists,ga,wins,draws,losses,withResult,winPct,noLossPct,ownGoals,
@@ -975,7 +977,9 @@ function availableSeasons(){
   return [...years].sort().reverse();
 }
 function rankPlayers(statKey,filter){
-  const playedPlayers=STATE.players.filter(p=>playerFiveIds(p.id).length>0);
+  // Ne classer que les joueurs ayant participé à au moins un Five déjà joué
+  // (un Five à venir où les équipes sont déjà faites ne doit pas suffire à apparaître dans un classement).
+  const playedPlayers=STATE.players.filter(p=>playerFiveIds(p.id).map(getFive).filter(Boolean).some(f=>!isFutureFive(f)));
   const rows=playedPlayers.map(p=>({player:p, value:statFromFilter(p.id,statKey,filter)||0}));
   rows.sort((a,b)=>b.value-a.value);
   let rank=0, prev=null;
@@ -1016,7 +1020,8 @@ function assistsBreakdownForScorer(playerId){
 /* Face-à-face : pour chaque adversaire déjà affronté (équipes opposées
    dans un même Five, résultat connu), le bilan V/N/D de playerId. */
 function headToHeadStats(playerId){
-  const myParts=STATE.participations.filter(p=>p.playerId===playerId && p.teamId);
+  // Un Five pas encore joué ne doit jamais compter comme un 0-0 "match nul" en face-à-face.
+  const myParts=STATE.participations.filter(p=>p.playerId===playerId && p.teamId && !isFutureFive(getFive(p.fiveId)));
   const opponents={};
   for(const myPart of myParts){
     const result=playerResultInFive(playerId, myPart.fiveId);
@@ -1086,12 +1091,14 @@ function computeRecords(){
   };
 }
 function dashboardStats(){
-  const totalFives=STATE.fives.length;
+  const sorted=fivesSorted();
+  const playedSorted=sorted.filter(f=>!isFutureFive(f));
+  // "Five joués" et totaux de buts/passes : on ne compte que les Five déjà joués,
+  // un Five à venir n'est qu'une annonce et ne doit jamais apparaître dans les stats.
+  const totalFives=playedSorted.length;
   const totalPlayers=STATE.players.length;
   const totalGoals=STATE.goals.length;
   const totalAssists=STATE.goals.filter(g=>g.assisterId).length;
-  const sorted=fivesSorted();
-  const playedSorted=sorted.filter(f=>!isFutureFive(f));
   const lastFive=playedSorted.length? playedSorted[playedSorted.length-1] : null;
   const nextFive=sorted.filter(f=>isFutureFive(f)).sort((a,b)=>a.date.localeCompare(b.date))[0] || null;
   const topScorerRanked=rankPlayers('goals','total');
@@ -1101,7 +1108,7 @@ function dashboardStats(){
   const topAssister=(topAssisterRanked.length && topAssisterRanked[0].value>0)? topAssisterRanked.filter(r=>r.rank===1) : [];
   const topGA=(topGARanked.length && topGARanked[0].value>0)? topGARanked.filter(r=>r.rank===1) : [];
   let bestFive=null;
-  STATE.fives.forEach(f=>{ const n=goalsForFive(f.id).length; if(!bestFive||n>bestFive.count) bestFive={five:f,count:n}; });
+  playedSorted.forEach(f=>{ const n=goalsForFive(f.id).length; if(!bestFive||n>bestFive.count) bestFive={five:f,count:n}; });
   return {totalFives,totalPlayers,totalGoals,totalAssists,lastFive,nextFive,topScorer,topAssister,topGA,bestFive};
 }
 
@@ -2245,8 +2252,8 @@ function generateBettingBoard(){
     bets.push({id:'blank_'+p.id, icon:'🚫', label:`${p.name} ne marque ni ne passe`, odds:probToOdds(Math.exp(-(fs.avgGoals+fs.avgAssists))), player:p});
   }
 
-  // paris généraux
-  const totalFives=STATE.fives.length;
+  // paris généraux (uniquement basé sur les Five déjà joués, pas les Five à venir)
+  const totalFives=STATE.fives.filter(f=>!isFutureFive(f)).length;
   const totalOwnGoals=STATE.goals.filter(g=>g.isOwnGoal).length;
   const cscRate=totalFives? Math.max(0.05,totalOwnGoals/totalFives) : 0.08;
   bets.push({id:'csc', icon:'🥅', label:'Il y a au moins un CSC dans le prochain Five', odds:probToOdds(cscRate,1.1)});
