@@ -623,14 +623,10 @@ function countryName(code){
   try{ return new Intl.DisplayNames(['fr'],{type:'region'}).of(code.toUpperCase()); }
   catch(e){ return code; }
 }
-const FALLBACK_COUNTRIES=['FR','DZ','MA','TN','SN','CI','CM','CD','ML','PT','ES','IT','BE','TR','GB','DE','NL','BR','AR','US'];
+// Liste volontairement restreinte pour l'instant (demande explicite) : Maroc, Algérie,
+// Russie, Inde, Chili, Tunisie. À élargir plus tard si besoin.
+const FALLBACK_COUNTRIES=['MA','DZ','RU','IN','CL','TN'];
 function allCountryCodes(){
-  try{
-    if(typeof Intl.supportedValuesOf==='function'){
-      const regions=Intl.supportedValuesOf('region').filter(c=>/^[A-Z]{2}$/.test(c));
-      if(regions.length) return regions;
-    }
-  }catch(e){}
   return FALLBACK_COUNTRIES;
 }
 function countryOptionsHTML(selected){
@@ -640,20 +636,6 @@ function countryOptionsHTML(selected){
     .sort((a,b)=>a.name.localeCompare(b.name,'fr'));
   return `<option value="">- Non renseigné -</option>` + codes.map(c=>`<option value="${c.code}" ${selected===c.code?'selected':''}>${flagEmoji(c.code)} ${esc(c.name)}</option>`).join('');
 }
-const POSITIONS=[
-  {v:'gardien', l:'Gardien', icon:'🧤'},
-  {v:'defenseur', l:'Défenseur', icon:'🛡️'},
-  {v:'milieu', l:'Milieu', icon:'⚙️'},
-  {v:'attaquant', l:'Attaquant', icon:'🎯'}
-];
-function positionLabel(v){ const p=POSITIONS.find(x=>x.v===v); return p? p.icon+' '+p.l : null; }
-const FEET=[
-  {v:'droit', l:'Droit'},
-  {v:'gauche', l:'Gauche'},
-  {v:'ambidextre', l:'Ambidextre'}
-];
-function footLabel(v){ const f=FEET.find(x=>x.v===v); return f? f.l : null; }
-function footIcon(v){ return v==='gauche'?'🦶↩':v==='droit'?'🦶↪':v==='ambidextre'?'🦶↔':''; }
 function esc(s){
   if(s===null||s===undefined) return '';
   return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -715,8 +697,8 @@ function sbCheck(res){
 }
 
 /* ---- mapping camelCase (app) <-> snake_case (Postgres) ---- */
-function playerFromDb(r){ return { id:r.id, name:r.name, photo:r.photo||null, notes:r.notes||'', country:r.country||null, position:r.position||null, preferredFoot:r.preferred_foot||null, createdAt:r.created_at? new Date(r.created_at).getTime():Date.now() }; }
-function playerToDb(p){ return { id:p.id, name:p.name, photo:p.photo||null, notes:p.notes||'', country:p.country||null, position:p.position||null, preferred_foot:p.preferredFoot||null }; }
+function playerFromDb(r){ return { id:r.id, name:r.name, photo:r.photo||null, notes:r.notes||'', country:r.country||null, createdAt:r.created_at? new Date(r.created_at).getTime():Date.now() }; }
+function playerToDb(p){ return { id:p.id, name:p.name, photo:p.photo||null, notes:p.notes||'', country:p.country||null }; }
 
 function fiveFromDb(r){ return { id:r.id, date:r.date, timeStart:r.time_start||'', timeEnd:r.time_end||'', location:r.location||'', notes:r.notes||'', attackingEndA:r.attacking_end_a||'top', createdAt:r.created_at? new Date(r.created_at).getTime():Date.now() }; }
 function fiveToDb(f){ return { id:f.id, date:f.date, time_start:f.timeStart||null, time_end:f.timeEnd||null, location:f.location||null, notes:f.notes||'', attacking_end_a:f.attackingEndA||'top' }; }
@@ -1792,7 +1774,6 @@ function viewPlayerList(){
     return `<div class="player-card" onclick="navigate('player/${p.id}')">
       ${avatarHTML(p,88)}
       <div class="pc-name">${esc(p.name)}${p.country?' '+flagEmoji(p.country):''}</div>
-      ${p.position? `<div class="page-sub" style="font-size:11.5px;margin-top:-6px;">${positionLabel(p.position)}</div>` : ''}
     </div>`;
   }).join('')}</div>` : emptyState('👥','Aucun joueur trouvé')}
   `;
@@ -1934,10 +1915,8 @@ function viewPlayerProfile(playerId){
     ${avatarHTML(p,96)}
     <div>
       <h1>${esc(p.name)}</h1>
-      ${(p.country||p.position||p.preferredFoot)? `<div class="profile-flagline">
-        ${p.country? `<span>${flagEmoji(p.country)} ${esc(countryName(p.country)||p.country)}</span>` : ''}
-        ${p.position? `<span class="badge">${positionLabel(p.position)}</span>` : ''}
-        ${p.preferredFoot? `<span class="badge">${footIcon(p.preferredFoot)} Pied ${footLabel(p.preferredFoot).toLowerCase()}</span>` : ''}
+      ${p.country? `<div class="profile-flagline">
+        <span>${flagEmoji(p.country)} ${esc(countryName(p.country)||p.country)}</span>
       </div>` : ''}
       ${p.notes? `<div class="page-sub" style="margin-top:8px;max-width:480px;">${esc(p.notes)}</div>` : ''}
     </div>
@@ -2506,17 +2485,7 @@ function openPlayerForm(playerId){
       <div class="form-row"><label>Photo</label><input class="input" type="file" accept="image/*" name="photoFile">
         ${p&&p.photo? `<div style="margin-top:8px;">${avatarHTML(p,60)} <label style="display:inline-flex;align-items:center;gap:6px;font-weight:500;text-transform:none;font-size:12.5px;"><input type="checkbox" name="removePhoto"> Supprimer la photo actuelle</label></div>`:''}
       </div>
-      <div class="form-2col">
-        <div class="form-row"><label>Nationalité</label><select class="input" name="country">${countryOptionsHTML(p?p.country:null)}</select></div>
-        <div class="form-row"><label>Poste</label><select class="input" name="position">
-          <option value="">- Non renseigné -</option>
-          ${POSITIONS.map(o=>`<option value="${o.v}" ${p&&p.position===o.v?'selected':''}>${o.icon} ${o.l}</option>`).join('')}
-        </select></div>
-      </div>
-      <div class="form-row"><label>Pied fort</label><select class="input" name="preferredFoot">
-        <option value="">- Non renseigné -</option>
-        ${FEET.map(o=>`<option value="${o.v}" ${p&&p.preferredFoot===o.v?'selected':''}>${o.l}</option>`).join('')}
-      </select></div>
+      <div class="form-row"><label>Nationalité</label><select class="input" name="country">${countryOptionsHTML(p?p.country:null)}</select></div>
       <div class="form-row"><label>Notes / infos complémentaires</label><textarea class="input" name="notes" rows="3">${p&&p.notes?esc(p.notes):''}</textarea></div>
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" onclick="closeModal()">Annuler</button>
@@ -2535,8 +2504,6 @@ async function submitPlayerForm(ev,playerId){
     id: playerId || uid('pl'),
     name,
     country: (fd.get('country')||'').trim() || null,
-    position: (fd.get('position')||'').trim() || null,
-    preferredFoot: (fd.get('preferredFoot')||'').trim() || null,
     notes: (fd.get('notes')||'').trim(),
     photo: existing? existing.photo : null,
     createdAt: existing? existing.createdAt : Date.now()
