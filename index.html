@@ -1388,9 +1388,9 @@ function goalActionLinesSVG(row,insetSide){
     const gd=goalEntryXY(row.goalX,insetSide);
     out+=`<line x1="${sx.toFixed(1)}" y1="${sy.toFixed(1)}" x2="${gd.x.toFixed(1)}" y2="${gd.y.toFixed(1)}" stroke="#f97316" stroke-width="1.6" opacity=".9"/>`;
   }
-  if(hasPasser) out+=pitchDotSVG(row.passerX,row.passerY,'#3b82f6',7);
-  if(hasShot) out+=`<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="7" fill="#f97316" stroke="#fff" stroke-width="1.4"/>`;
-  if(hasGoal){ const gd=goalEntryXY(row.goalX,insetSide); out+=`<circle cx="${gd.x.toFixed(1)}" cy="${gd.y.toFixed(1)}" r="5" fill="#ef4444" stroke="#fff" stroke-width="1.3"/>`; }
+  if(hasPasser) out+=pitchDotSVG(row.passerX,row.passerY,'#3b82f6',5);
+  if(hasShot) out+=`<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="4.5" fill="#f97316" stroke="#fff" stroke-width="1.2"/>`;
+  /* pas de rond à l'arrivée dans la cage : la cage est trop petite, le trait seul suffit */
   return out;
 }
 function goalActionPickerBlock(row,insetSide){
@@ -1509,9 +1509,9 @@ function pitchMapHTML(points,color,height){
     if(p.goalX!==null && p.goalX!==undefined){
       const gd=goalEntryXY(p.goalX,'top'); // toujours en haut : le joueur est normalisé comme attaquant vers le haut
       marks+=`<line x1="${sx.toFixed(1)}" y1="${sy.toFixed(1)}" x2="${gd.x.toFixed(1)}" y2="${gd.y.toFixed(1)}" stroke="${color}" stroke-width="1.3" opacity=".65"/>`;
-      marks+=`<circle cx="${gd.x.toFixed(1)}" cy="${gd.y.toFixed(1)}" r="4" fill="${color}" stroke="#fff" stroke-width="1" opacity=".9"/>`;
+      /* pas de rond à l'arrivée dans la cage : trop petit pour rester lisible */
     }
-    marks+=`<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="6.5" fill="${color}" stroke="#fff" stroke-width="1.3" style="cursor:pointer;" onclick="navigate('five/${p.fiveId}')">${p.label?`<title>${esc(p.label)}</title>`:''}</circle>`;
+    marks+=`<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="5" fill="${color}" stroke="#fff" stroke-width="1.2" style="cursor:pointer;" onclick="navigate('five/${p.fiveId}')">${p.label?`<title>${esc(p.label)}</title>`:''}</circle>`;
   });
   return `<div style="border-radius:10px;overflow:hidden;border:1px solid var(--border);">
     <svg viewBox="0 0 ${PITCH_VB_W} ${PITCH_VB_H}" width="100%" height="${height||360}" style="display:block;background:#15532d;">
@@ -1556,9 +1556,9 @@ function matchActionsMapHTML(fiveId){
       const gd=goalEntryXY(g.goalX,entrySide);
       const gx=gd.x, gy=pitchY0+gd.y;
       marks+=`<line x1="${sx.toFixed(1)}" y1="${sy.toFixed(1)}" x2="${gx.toFixed(1)}" y2="${gy.toFixed(1)}" stroke="${color}" stroke-width="1.3" opacity=".65"/>`;
-      marks+=`<circle cx="${gx.toFixed(1)}" cy="${gy.toFixed(1)}" r="4.5" fill="${color}" stroke="#fff" stroke-width="1"/>`;
+      /* pas de rond à l'arrivée dans la cage : trop petit pour rester lisible */
     }
-    marks+=`<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="6.5" fill="${color}" stroke="#fff" stroke-width="1.3" style="cursor:pointer;" onclick="navigate('player/${g.scorerId}')"><title>${esc(playerName(scorer))} - ${g.isOwnGoal?'CSC':''} ${g.after.a}-${g.after.b}</title></circle>`;
+    marks+=`<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="5" fill="${color}" stroke="#fff" stroke-width="1.2" style="cursor:pointer;" onclick="navigate('player/${g.scorerId}')"><title>${esc(playerName(scorer))} - ${g.isOwnGoal?'CSC':''} ${g.after.a}-${g.after.b}</title></circle>`;
   });
   return `<div style="border-radius:10px;overflow:hidden;border:1px solid var(--border);">
     <svg viewBox="0 0 ${PITCH_VB_W} ${totalH}" width="100%" height="460" style="display:block;background:#15532d;">
