@@ -1606,14 +1606,15 @@ function matchActionsMapHTML(fiveId){
   const bSide=aSide==='top'?'bottom':'top';
   const topTeam = aSide==='top'?'A':'B';
   const bottomTeam = aSide==='top'?'B':'A';
-  const topColor = topTeam==='A'? '#3b82f6' : '#8b5cf6';
-  const bottomColor = bottomTeam==='A'? '#3b82f6' : '#8b5cf6';
+  const TEAM_A_COLOR='#3b82f6', TEAM_B_COLOR='#ef4444'; /* bleu vs rouge : couleurs vraiment distinctes entre équipe A et équipe B */
+  const topColor = topTeam==='A'? TEAM_A_COLOR : TEAM_B_COLOR;
+  const bottomColor = bottomTeam==='A'? TEAM_A_COLOR : TEAM_B_COLOR;
   const LABEL_H=16;
   const pitchY0=LABEL_H;
   const totalH=LABEL_H+PITCH_VB_H+LABEL_H;
   let marks='';
   withPos.forEach(g=>{
-    const color = g.team==='A' ? '#3b82f6' : g.team==='B' ? '#8b5cf6' : '#93a0b8';
+    const color = g.team==='A' ? TEAM_A_COLOR : g.team==='B' ? TEAM_B_COLOR : '#93a0b8';
     const scorer=getPlayer(g.scorerId);
     const sx=g.shotX*PITCH_VB_W, sy=pitchY0+g.shotY*PITCH_VB_H;
     const hasAssistPos=(g.passerX!==null&&g.passerX!==undefined);
