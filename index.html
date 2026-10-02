@@ -610,13 +610,15 @@ function computeAge(birth){
   if(md<0||(md===0&&now.getDate()<b.getDate())) age--;
   return age;
 }
-function flagEmoji(code){
-  if(!code||code.length!==2) return '🏳️';
-  const c=code.toUpperCase();
-  const A=0x1F1E6;
-  const c0=c.charCodeAt(0)-65, c1=c.charCodeAt(1)-65;
-  if(c0<0||c0>25||c1<0||c1>25) return '🏳️';
-  return String.fromCodePoint(A+c0)+String.fromCodePoint(A+c1);
+// Les emoji drapeaux (indicateurs régionaux unicode) ne s'affichent pas comme des drapeaux
+// sur beaucoup de systèmes (Windows notamment affiche juste les 2 lettres) : on utilise donc
+// une vraie image de drapeau (flagcdn.com, SVG, gratuit et sans clé) partout où un drapeau
+// doit être visible.
+function flagImgHTML(code,size){
+  if(!code||code.length!==2) return '';
+  const w=size||20;
+  const c=code.toLowerCase();
+  return `<img src="https://flagcdn.com/${c}.svg" width="${w}" style="vertical-align:middle;border-radius:2px;box-shadow:0 0 0 1px rgba(255,255,255,.15);" alt="${esc(code.toUpperCase())}" loading="lazy" onerror="this.style.display='none';">`;
 }
 function countryName(code){
   if(!code) return '';
@@ -629,12 +631,24 @@ const FALLBACK_COUNTRIES=['MA','DZ','RU','IN','CL','TN'];
 function allCountryCodes(){
   return FALLBACK_COUNTRIES;
 }
-function countryOptionsHTML(selected){
+// Un <select> natif ne peut pas afficher d'image dans ses <option> (limitation de tous les
+// navigateurs) : pour avoir de vrais drapeaux dans le formulaire, on utilise donc des boutons
+// cliquables plutôt qu'un menu déroulant.
+let _playerFormCountry=null;
+function countryPickerHTML(){
   const codes=allCountryCodes()
     .map(c=>({code:c,name:countryName(c)||c}))
     .filter(c=>c.name)
     .sort((a,b)=>a.name.localeCompare(b.name,'fr'));
-  return `<option value="">- Non renseigné -</option>` + codes.map(c=>`<option value="${c.code}" ${selected===c.code?'selected':''}>${flagEmoji(c.code)} ${esc(c.name)}</option>`).join('');
+  return `<div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <button type="button" class="btn btn-sm ${!_playerFormCountry?'btn-primary':'btn-ghost'}" onclick="setCountryPick('')">Non renseigné</button>
+    ${codes.map(c=>`<button type="button" class="btn btn-sm ${_playerFormCountry===c.code?'btn-primary':'btn-ghost'}" style="display:inline-flex;align-items:center;gap:6px;" onclick="setCountryPick('${c.code}')">${flagImgHTML(c.code,18)} ${esc(c.name)}</button>`).join('')}
+  </div>`;
+}
+function setCountryPick(code){
+  _playerFormCountry=code||null;
+  const el=document.getElementById('countryPickerContainer');
+  if(el) el.innerHTML=countryPickerHTML();
 }
 function esc(s){
   if(s===null||s===undefined) return '';
@@ -1773,7 +1787,7 @@ function viewPlayerList(){
   ${list.length? `<div class="grid grid-4 player-cards-grid">${list.map(p=>{
     return `<div class="player-card" onclick="navigate('player/${p.id}')">
       ${avatarHTML(p,88)}
-      <div class="pc-name">${esc(p.name)}${p.country?' '+flagEmoji(p.country):''}</div>
+      <div class="pc-name">${esc(p.name)}${p.country?' '+flagImgHTML(p.country,16):''}</div>
     </div>`;
   }).join('')}</div>` : emptyState('👥','Aucun joueur trouvé')}
   `;
@@ -1916,7 +1930,7 @@ function viewPlayerProfile(playerId){
     <div>
       <h1>${esc(p.name)}</h1>
       ${p.country? `<div class="profile-flagline">
-        <span>${flagEmoji(p.country)} ${esc(countryName(p.country)||p.country)}</span>
+        <span>${flagImgHTML(p.country,20)} ${esc(countryName(p.country)||p.country)}</span>
       </div>` : ''}
       ${p.notes? `<div class="page-sub" style="margin-top:8px;max-width:480px;">${esc(p.notes)}</div>` : ''}
     </div>
@@ -2478,6 +2492,7 @@ function closeModal(){
 function openPlayerForm(playerId){
   if(!isAdmin()){ toast('Connecte-toi pour modifier les données','error'); return; }
   const p=playerId? getPlayer(playerId) : null;
+  _playerFormCountry = p? (p.country||null) : null;
   openModal(`
     <h2>${p?'✏️ Modifier le joueur':'➕ Ajouter un joueur'}<button class="modal-close" onclick="closeModal()">✕</button></h2>
     <form id="playerForm" onsubmit="return submitPlayerForm(event,'${playerId||''}')">
@@ -2485,7 +2500,7 @@ function openPlayerForm(playerId){
       <div class="form-row"><label>Photo</label><input class="input" type="file" accept="image/*" name="photoFile">
         ${p&&p.photo? `<div style="margin-top:8px;">${avatarHTML(p,60)} <label style="display:inline-flex;align-items:center;gap:6px;font-weight:500;text-transform:none;font-size:12.5px;"><input type="checkbox" name="removePhoto"> Supprimer la photo actuelle</label></div>`:''}
       </div>
-      <div class="form-row"><label>Nationalité</label><select class="input" name="country">${countryOptionsHTML(p?p.country:null)}</select></div>
+      <div class="form-row"><label>Nationalité</label><div id="countryPickerContainer">${countryPickerHTML()}</div></div>
       <div class="form-row"><label>Notes / infos complémentaires</label><textarea class="input" name="notes" rows="3">${p&&p.notes?esc(p.notes):''}</textarea></div>
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" onclick="closeModal()">Annuler</button>
@@ -2503,7 +2518,7 @@ async function submitPlayerForm(ev,playerId){
   const p={
     id: playerId || uid('pl'),
     name,
-    country: (fd.get('country')||'').trim() || null,
+    country: _playerFormCountry || null,
     notes: (fd.get('notes')||'').trim(),
     photo: existing? existing.photo : null,
     createdAt: existing? existing.createdAt : Date.now()
@@ -2995,6 +3010,7 @@ window.closePitchZoom=closePitchZoom;
 window.handlePitchZoomClick=handlePitchZoomClick;
 window.setPickMode=setPickMode;
 window.setAttackingEndA=setAttackingEndA;
+window.setCountryPick=setCountryPick;
 window.compressGoalVideo=compressGoalVideo;
 window.syncGoalSelects=syncGoalSelects;
 window.markRemoveVideo=markRemoveVideo;
