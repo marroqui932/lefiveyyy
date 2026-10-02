@@ -1332,34 +1332,49 @@ function barChart(data,color){
 
 /* ============================================================
    MINI TERRAIN - tracé réutilisable + points (buts / passes)
-   Convention : coordonnées normalisées 0..1 (x=longueur, y=largeur,
-   origine en haut à gauche), converties en un viewBox fixe 300x160.
+   Convention : coordonnées normalisées 0..1 (x=largeur, y=longueur,
+   origine en haut à gauche), terrain dessiné À LA VERTICALE (comme
+   vu depuis le bord du five), converties en un viewBox fixe.
+   Un petit encart "cage" (sa propre normalisation 0..1 x/y) est
+   accolé en haut du terrain pour représenter l'entrée du ballon
+   dans le but, relié au point de tir par un trait.
    ============================================================ */
-const PITCH_VB_W=300, PITCH_VB_H=160;
-function pitchMarkingsSVG(){
-  return `<rect x="2" y="2" width="296" height="156" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="2"/>
-    <line x1="150" y1="2" x2="150" y2="158" stroke="rgba(255,255,255,.55)" stroke-width="2"/>
-    <circle cx="150" cy="80" r="22" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="2"/>
-    <circle cx="150" cy="80" r="2" fill="rgba(255,255,255,.55)"/>
-    <rect x="2" y="48" width="36" height="64" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="2"/>
-    <rect x="262" y="48" width="36" height="64" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="2"/>
-    <rect x="2" y="66" width="14" height="28" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1.3"/>
-    <rect x="284" y="66" width="14" height="28" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1.3"/>`;
+const PITCH_VB_W=160, PITCH_VB_H=280;
+const GOAL_INSET_H=40, GOAL_INSET_W=80;
+const GOAL_INSET_X0=(PITCH_VB_W-GOAL_INSET_W)/2;
+function pitchFieldMarkingsSVG(){
+  const w=PITCH_VB_W, h=PITCH_VB_H;
+  return `<rect x="2" y="2" width="${w-4}" height="${h-4}" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="2"/>
+    <line x1="2" y1="${h/2}" x2="${w-2}" y2="${h/2}" stroke="rgba(255,255,255,.55)" stroke-width="2"/>
+    <circle cx="${w/2}" cy="${h/2}" r="22" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="2"/>
+    <circle cx="${w/2}" cy="${h/2}" r="2" fill="rgba(255,255,255,.55)"/>
+    <rect x="${w/2-34}" y="2" width="68" height="36" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="2"/>
+    <rect x="${w/2-34}" y="${h-38}" width="68" height="36" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="2"/>
+    <rect x="${w/2-14}" y="2" width="28" height="14" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1.3"/>
+    <rect x="${w/2-14}" y="${h-16}" width="28" height="14" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1.3"/>`;
+}
+function goalInsetMarkingsSVG(){
+  const x0=GOAL_INSET_X0, w=GOAL_INSET_W, h=GOAL_INSET_H;
+  return `<rect x="${x0}" y="2" width="${w}" height="${h-6}" fill="#0d1420" stroke="#eef1f7" stroke-width="2.5"/>
+    <line x1="${x0}" y1="${(h-6)*0.4+2}" x2="${x0+w}" y2="${(h-6)*0.4+2}" stroke="rgba(238,241,247,.25)" stroke-width="1"/>
+    <line x1="${x0+w/3}" y1="2" x2="${x0+w/3}" y2="${h-4}" stroke="rgba(238,241,247,.2)" stroke-width="1"/>
+    <line x1="${x0+2*w/3}" y1="2" x2="${x0+2*w/3}" y2="${h-4}" stroke="rgba(238,241,247,.2)" stroke-width="1"/>`;
 }
 function pitchDotSVG(x,y,color,r,onclick,title){
   if(x===null||x===undefined||y===null||y===undefined) return '';
   const cx=(x*PITCH_VB_W).toFixed(1), cy=(y*PITCH_VB_H).toFixed(1);
   return `<circle cx="${cx}" cy="${cy}" r="${r||6.5}" fill="${color}" stroke="#fff" stroke-width="1.3" ${onclick?`style="cursor:pointer;" onclick="${onclick}"`:''}>${title?`<title>${esc(title)}</title>`:''}</circle>`;
 }
-// Mini-widget cliquable pour un formulaire (place un point et peut être effacé)
+function goalDotXY(goalX,goalY){ return { x:GOAL_INSET_X0+goalX*GOAL_INSET_W, y:2+goalY*(GOAL_INSET_H-8) }; }
+// Mini-widget cliquable pour un formulaire (place un point sur le terrain, peut être effacé)
 function pitchPickerBlock(rowId,label,x,y,color,field){
   const hasPoint=(x!==null&&x!==undefined);
   const dot=hasPoint? pitchDotSVG(x,y,color,7) : '';
-  return `<div style="flex:1;min-width:150px;max-width:220px;">
+  return `<div style="flex:1;min-width:110px;max-width:140px;">
     <div class="hint" style="margin:0 0 4px;font-weight:700;color:var(--text-dim);text-transform:uppercase;font-size:10.5px;">${esc(label)}</div>
     <div style="border-radius:8px;overflow:hidden;border:1px solid var(--border);">
-      <svg viewBox="0 0 ${PITCH_VB_W} ${PITCH_VB_H}" width="100%" height="88" style="display:block;background:#15532d;">
-        ${pitchMarkingsSVG()}
+      <svg viewBox="0 0 ${PITCH_VB_W} ${PITCH_VB_H}" width="100%" height="170" style="display:block;background:#15532d;">
+        ${pitchFieldMarkingsSVG()}
         <rect x="0" y="0" width="${PITCH_VB_W}" height="${PITCH_VB_H}" fill="transparent" style="cursor:crosshair;" onclick="handlePitchPickClick(event,'${rowId}','${field}')"/>
         ${dot}
       </svg>
@@ -1367,24 +1382,34 @@ function pitchPickerBlock(rowId,label,x,y,color,field){
     ${hasPoint? `<button type="button" class="btn btn-sm btn-ghost" style="margin-top:4px;padding:2px 8px;font-size:11px;" onclick="clearGoalPoint('${rowId}','${field}')">✕ Effacer</button>` : `<div class="hint">Clique sur le terrain</div>`}
   </div>`;
 }
-// Mini-widget cliquable pour la cage (entrée du ballon dans le but)
-function goalFramePickerBlock(rowId,x,y){
-  const hasPoint=(x!==null&&x!==undefined);
-  const dot=hasPoint? `<circle cx="${(x*200).toFixed(1)}" cy="${(y*100).toFixed(1)}" r="6" fill="#ef4444" stroke="#fff" stroke-width="1.3"/>` : '';
-  return `<div style="flex:1;min-width:140px;max-width:200px;">
-    <div class="hint" style="margin:0 0 4px;font-weight:700;color:var(--text-dim);text-transform:uppercase;font-size:10.5px;">🥅 Entrée dans la cage</div>
+// Mini-widget combiné : position de tir (sur le terrain) + entrée dans la cage (encart du
+// haut), avec un trait qui relie les deux pour visualiser la trajectoire du tir.
+function shotGoalPickerBlock(rowId,shotX,shotY,goalX,goalY){
+  const hasShot=(shotX!==null&&shotX!==undefined);
+  const hasGoal=(goalX!==null&&goalX!==undefined);
+  const totalH=GOAL_INSET_H+PITCH_VB_H;
+  let line='', shotDot='', goalDot='';
+  let sx,sy,gx,gy;
+  if(hasShot){ sx=shotX*PITCH_VB_W; sy=GOAL_INSET_H+shotY*PITCH_VB_H; shotDot=`<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="7" fill="#f97316" stroke="#fff" stroke-width="1.4"/>`; }
+  if(hasGoal){ const gd=goalDotXY(goalX,goalY); gx=gd.x; gy=gd.y; goalDot=`<circle cx="${gx.toFixed(1)}" cy="${gy.toFixed(1)}" r="5" fill="#ef4444" stroke="#fff" stroke-width="1.3"/>`; }
+  if(hasShot && hasGoal){ line=`<line x1="${sx.toFixed(1)}" y1="${sy.toFixed(1)}" x2="${gx.toFixed(1)}" y2="${gy.toFixed(1)}" stroke="#f97316" stroke-width="1.6" stroke-dasharray="4,3" opacity=".85"/>`; }
+  return `<div style="flex:1;min-width:150px;max-width:190px;">
+    <div class="hint" style="margin:0 0 4px;font-weight:700;color:var(--text-dim);text-transform:uppercase;font-size:10.5px;">📍 Tir &amp; entrée dans la cage</div>
     <div style="border-radius:8px;overflow:hidden;border:1px solid var(--border);">
-      <svg viewBox="0 0 200 100" width="100%" height="88" style="display:block;background:#0d1420;">
-        <rect x="4" y="4" width="192" height="92" fill="none" stroke="#eef1f7" stroke-width="3"/>
-        <line x1="4" y1="34" x2="196" y2="34" stroke="rgba(238,241,247,.25)" stroke-width="1"/>
-        <line x1="4" y1="64" x2="196" y2="64" stroke="rgba(238,241,247,.25)" stroke-width="1"/>
-        <line x1="70" y1="4" x2="70" y2="96" stroke="rgba(238,241,247,.25)" stroke-width="1"/>
-        <line x1="134" y1="4" x2="134" y2="96" stroke="rgba(238,241,247,.25)" stroke-width="1"/>
-        <rect x="0" y="0" width="200" height="100" fill="transparent" style="cursor:crosshair;" onclick="handleGoalFrameClick(event,'${rowId}')"/>
-        ${dot}
+      <svg viewBox="0 0 ${PITCH_VB_W} ${totalH}" width="100%" height="210" style="display:block;background:#15532d;">
+        ${goalInsetMarkingsSVG()}
+        <g transform="translate(0,${GOAL_INSET_H})">${pitchFieldMarkingsSVG()}</g>
+        ${line}
+        ${shotDot}
+        ${goalDot}
+        <rect x="${GOAL_INSET_X0}" y="2" width="${GOAL_INSET_W}" height="${GOAL_INSET_H-6}" fill="transparent" style="cursor:crosshair;" onclick="handleGoalFrameClick(event,'${rowId}')"/>
+        <rect x="0" y="${GOAL_INSET_H}" width="${PITCH_VB_W}" height="${PITCH_VB_H}" fill="transparent" style="cursor:crosshair;" onclick="handlePitchPickClick(event,'${rowId}','shot')"/>
       </svg>
     </div>
-    ${hasPoint? `<button type="button" class="btn btn-sm btn-ghost" style="margin-top:4px;padding:2px 8px;font-size:11px;" onclick="clearGoalPoint('${rowId}','goal')">✕ Effacer</button>` : `<div class="hint">Clique sur la cage</div>`}
+    <div style="display:flex;gap:10px;margin-top:4px;flex-wrap:wrap;">
+      ${hasShot? `<button type="button" class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="clearGoalPoint('${rowId}','shot')">✕ Tir</button>` : `<span class="hint">Terrain = tir</span>`}
+      ${hasGoal? `<button type="button" class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="clearGoalPoint('${rowId}','goal')">✕ Entrée</button>` : `<span class="hint">Cage = entrée</span>`}
+    </div>
   </div>`;
 }
 function handlePitchPickClick(ev,rowId,field){
@@ -1408,42 +1433,67 @@ function clearGoalPoint(rowId,field){
   updateGoalRow(rowId,field+'Y',null);
   syncGoalSelects();
 }
-// Carte en lecture seule : liste de points colorés (buts ou passes d'un joueur)
-function pitchMapHTML(points,color,height){
+// Carte en lecture seule : liste de points colorés (buts ou passes d'un joueur).
+// Si showGoalInset est vrai et qu'un point a goalX/goalY, un encart "cage" est affiché
+// en haut avec un trait reliant chaque tir à son point d'entrée dans le but.
+function pitchMapHTML(points,color,height,showGoalInset){
   if(!points.length) return emptyState('🗺️','Aucune position enregistrée pour ces actions');
-  const dots=points.map(p=>pitchDotSVG(p.x,p.y,color,6.5,`navigate('five/${p.fiveId}')`,p.label)).join('');
+  const yOff=showGoalInset? GOAL_INSET_H : 0;
+  const totalH=showGoalInset? GOAL_INSET_H+PITCH_VB_H : PITCH_VB_H;
+  let marks='';
+  points.forEach(p=>{
+    const sx=p.x*PITCH_VB_W, sy=yOff+p.y*PITCH_VB_H;
+    if(showGoalInset && p.goalX!==null && p.goalX!==undefined){
+      const gd=goalDotXY(p.goalX,p.goalY);
+      marks+=`<line x1="${sx.toFixed(1)}" y1="${sy.toFixed(1)}" x2="${gd.x.toFixed(1)}" y2="${gd.y.toFixed(1)}" stroke="${color}" stroke-width="1.3" stroke-dasharray="3,3" opacity=".55"/>`;
+      marks+=`<circle cx="${gd.x.toFixed(1)}" cy="${gd.y.toFixed(1)}" r="4" fill="${color}" stroke="#fff" stroke-width="1" opacity=".9"/>`;
+    }
+    marks+=`<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="6.5" fill="${color}" stroke="#fff" stroke-width="1.3" style="cursor:pointer;" onclick="navigate('five/${p.fiveId}')">${p.label?`<title>${esc(p.label)}</title>`:''}</circle>`;
+  });
   return `<div style="border-radius:10px;overflow:hidden;border:1px solid var(--border);">
-    <svg viewBox="0 0 ${PITCH_VB_W} ${PITCH_VB_H}" width="100%" height="${height||220}" style="display:block;background:#15532d;">
-      ${pitchMarkingsSVG()}
-      ${dots}
+    <svg viewBox="0 0 ${PITCH_VB_W} ${totalH}" width="100%" height="${height||360}" style="display:block;background:#15532d;">
+      ${showGoalInset? goalInsetMarkingsSVG() : ''}
+      <g transform="translate(0,${yOff})">${pitchFieldMarkingsSVG()}</g>
+      ${marks}
     </svg>
   </div>`;
 }
-// Carte "toutes les actions du Five" : tirs colorés par équipe + trait passeur -> réception
+// Carte "toutes les actions du Five" : tirs colorés par équipe, trait tir -> entrée dans
+// la cage, et trait passeur -> réception pour les buts avec passe décisive.
 function matchActionsMapHTML(fiveId){
   const goalsTL=fiveGoalsWithScore(fiveId);
   const withPos=goalsTL.filter(g=>g.shotX!==null&&g.shotX!==undefined&&g.shotY!==null&&g.shotY!==undefined);
   if(!withPos.length) return emptyState('🗺️','Aucune position de tir enregistrée pour ce Five');
+  const totalH=GOAL_INSET_H+PITCH_VB_H;
   let marks='';
   withPos.forEach(g=>{
     const color = g.team==='A' ? '#3b82f6' : g.team==='B' ? '#8b5cf6' : '#93a0b8';
     const scorer=getPlayer(g.scorerId);
+    const sx=g.shotX*PITCH_VB_W, sy=GOAL_INSET_H+g.shotY*PITCH_VB_H;
     const hasAssistPos=(g.passerX!==null&&g.passerX!==undefined&&g.receptionX!==null&&g.receptionX!==undefined);
     if(hasAssistPos){
-      marks+=`<line x1="${(g.passerX*PITCH_VB_W).toFixed(1)}" y1="${(g.passerY*PITCH_VB_H).toFixed(1)}" x2="${(g.receptionX*PITCH_VB_W).toFixed(1)}" y2="${(g.receptionY*PITCH_VB_H).toFixed(1)}" stroke="${color}" stroke-width="1.5" stroke-dasharray="3,3" opacity=".7"/>`;
-      marks+=pitchDotSVG(g.passerX,g.passerY,color,3.5);
+      const rx=g.receptionX*PITCH_VB_W, ry=GOAL_INSET_H+g.receptionY*PITCH_VB_H;
+      const px=g.passerX*PITCH_VB_W, py=GOAL_INSET_H+g.passerY*PITCH_VB_H;
+      marks+=`<line x1="${px.toFixed(1)}" y1="${py.toFixed(1)}" x2="${rx.toFixed(1)}" y2="${ry.toFixed(1)}" stroke="${color}" stroke-width="1.5" stroke-dasharray="3,3" opacity=".7"/>`;
+      marks+=`<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="3.5" fill="${color}" opacity=".55"/>`;
     }
-    marks+=pitchDotSVG(g.shotX,g.shotY,color,6.5,`navigate('player/${g.scorerId}')`,`${playerName(scorer)} - ${g.isOwnGoal?'CSC':''} ${g.after.a}-${g.after.b}`);
+    if(g.goalX!==null && g.goalX!==undefined){
+      const gd=goalDotXY(g.goalX,g.goalY);
+      marks+=`<line x1="${sx.toFixed(1)}" y1="${sy.toFixed(1)}" x2="${gd.x.toFixed(1)}" y2="${gd.y.toFixed(1)}" stroke="${color}" stroke-width="1.3" stroke-dasharray="2,2" opacity=".6"/>`;
+      marks+=`<circle cx="${gd.x.toFixed(1)}" cy="${gd.y.toFixed(1)}" r="4.5" fill="${color}" stroke="#fff" stroke-width="1"/>`;
+    }
+    marks+=`<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="6.5" fill="${color}" stroke="#fff" stroke-width="1.3" style="cursor:pointer;" onclick="navigate('player/${g.scorerId}')"><title>${esc(playerName(scorer))} - ${g.isOwnGoal?'CSC':''} ${g.after.a}-${g.after.b}</title></circle>`;
   });
   return `<div style="border-radius:10px;overflow:hidden;border:1px solid var(--border);">
-    <svg viewBox="0 0 ${PITCH_VB_W} ${PITCH_VB_H}" width="100%" height="260" style="display:block;background:#15532d;">
-      ${pitchMarkingsSVG()}
+    <svg viewBox="0 0 ${PITCH_VB_W} ${totalH}" width="100%" height="460" style="display:block;background:#15532d;">
+      ${goalInsetMarkingsSVG()}
+      <g transform="translate(0,${GOAL_INSET_H})">${pitchFieldMarkingsSVG()}</g>
       ${marks}
     </svg>
     <div style="display:flex;gap:14px;padding:10px 14px;font-size:12px;color:var(--text-dim);flex-wrap:wrap;">
       <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#3b82f6;margin-right:5px;"></span>Équipe A</span>
       <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#8b5cf6;margin-right:5px;"></span>Équipe B</span>
-      <span style="color:var(--text-faint);">Trait pointillé = passeur → réception</span>
+      <span style="color:var(--text-faint);">Pointillé fin = tir → entrée cage · pointillé large = passeur → réception</span>
     </div>
   </div>`;
 }
@@ -1787,7 +1837,7 @@ function viewPlayerProfile(playerId){
   ${historyRows || emptyState('📜','Aucun Five joué')}
 
   <div class="section-title">🗺️ Carte des buts</div>
-  ${pitchMapHTML(myGoals.filter(m=>m.goal.shotX!==null&&m.goal.shotX!==undefined).map(m=>({x:m.goal.shotX,y:m.goal.shotY,fiveId:m.five.id,label:'FIVE #'+pad2(fiveNumber(m.five.id))+' · '+fmtDateShort(m.five.date)})),'#f97316')}
+  ${pitchMapHTML(myGoals.filter(m=>m.goal.shotX!==null&&m.goal.shotX!==undefined).map(m=>({x:m.goal.shotX,y:m.goal.shotY,goalX:m.goal.goalX,goalY:m.goal.goalY,fiveId:m.five.id,label:'FIVE #'+pad2(fiveNumber(m.five.id))+' · '+fmtDateShort(m.five.date)})),'#f97316',360,true)}
 
   <div class="section-title">⚽ Mes buts (${myGoals.length})</div>
   ${myGoals.length? myGoals.map(m=>eventCard(m,'goals')).join('') : emptyState('⚽','Aucun but enregistré')}
@@ -2455,8 +2505,7 @@ function renderGoalRowsHTML(){
       </div>
       <div class="form-row"><label>📍 Localisation du but (optionnel)</label>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          ${pitchPickerBlock(row.rowId,'Position de tir',row.shotX,row.shotY,'#f97316','shot')}
-          ${goalFramePickerBlock(row.rowId,row.goalX,row.goalY)}
+          ${shotGoalPickerBlock(row.rowId,row.shotX,row.shotY,row.goalX,row.goalY)}
           ${(!row.isOwnGoal && row.assisterId) ? pitchPickerBlock(row.rowId,'Position du passeur',row.passerX,row.passerY,'#3b82f6','passer') + pitchPickerBlock(row.rowId,'Réception du tireur',row.receptionX,row.receptionY,'#22c55e','reception') : ''}
         </div>
       </div>
