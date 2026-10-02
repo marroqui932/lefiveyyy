@@ -1372,14 +1372,16 @@ function pitchPickerBlock(rowId,label,x,y,color,field){
   const dot=hasPoint? pitchDotSVG(x,y,color,7) : '';
   return `<div style="flex:1;min-width:110px;max-width:140px;">
     <div class="hint" style="margin:0 0 4px;font-weight:700;color:var(--text-dim);text-transform:uppercase;font-size:10.5px;">${esc(label)}</div>
-    <div style="border-radius:8px;overflow:hidden;border:1px solid var(--border);">
-      <svg viewBox="0 0 ${PITCH_VB_W} ${PITCH_VB_H}" width="100%" height="170" style="display:block;background:#15532d;">
+    <div style="border-radius:8px;overflow:hidden;border:1px solid var(--border);cursor:zoom-in;" onclick="openPitchZoom('${rowId}','${field}')">
+      <svg viewBox="0 0 ${PITCH_VB_W} ${PITCH_VB_H}" width="100%" height="170" style="display:block;background:#15532d;pointer-events:none;">
         ${pitchFieldMarkingsSVG()}
-        <rect x="0" y="0" width="${PITCH_VB_W}" height="${PITCH_VB_H}" fill="transparent" style="cursor:crosshair;" onclick="handlePitchPickClick(event,'${rowId}','${field}')"/>
         ${dot}
       </svg>
     </div>
-    ${hasPoint? `<button type="button" class="btn btn-sm btn-ghost" style="margin-top:4px;padding:2px 8px;font-size:11px;" onclick="clearGoalPoint('${rowId}','${field}')">✕ Effacer</button>` : `<div class="hint">Clique sur le terrain</div>`}
+    <div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;">
+      <button type="button" class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="openPitchZoom('${rowId}','${field}')">⛶ Agrandir</button>
+      ${hasPoint? `<button type="button" class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="clearGoalPoint('${rowId}','${field}')">✕ Effacer</button>` : ''}
+    </div>
   </div>`;
 }
 // Mini-widget combiné : position de tir (sur le terrain) + entrée dans la cage (encart du
@@ -1395,22 +1397,87 @@ function shotGoalPickerBlock(rowId,shotX,shotY,goalX,goalY){
   if(hasShot && hasGoal){ line=`<line x1="${sx.toFixed(1)}" y1="${sy.toFixed(1)}" x2="${gx.toFixed(1)}" y2="${gy.toFixed(1)}" stroke="#f97316" stroke-width="1.6" stroke-dasharray="4,3" opacity=".85"/>`; }
   return `<div style="flex:1;min-width:150px;max-width:190px;">
     <div class="hint" style="margin:0 0 4px;font-weight:700;color:var(--text-dim);text-transform:uppercase;font-size:10.5px;">📍 Tir &amp; entrée dans la cage</div>
-    <div style="border-radius:8px;overflow:hidden;border:1px solid var(--border);">
-      <svg viewBox="0 0 ${PITCH_VB_W} ${totalH}" width="100%" height="210" style="display:block;background:#15532d;">
+    <div style="border-radius:8px;overflow:hidden;border:1px solid var(--border);cursor:zoom-in;" onclick="openPitchZoom('${rowId}','shot')">
+      <svg viewBox="0 0 ${PITCH_VB_W} ${totalH}" width="100%" height="210" style="display:block;background:#15532d;pointer-events:none;">
         ${goalInsetMarkingsSVG()}
         <g transform="translate(0,${GOAL_INSET_H})">${pitchFieldMarkingsSVG()}</g>
         ${line}
         ${shotDot}
         ${goalDot}
-        <rect x="${GOAL_INSET_X0}" y="2" width="${GOAL_INSET_W}" height="${GOAL_INSET_H-6}" fill="transparent" style="cursor:crosshair;" onclick="handleGoalFrameClick(event,'${rowId}')"/>
-        <rect x="0" y="${GOAL_INSET_H}" width="${PITCH_VB_W}" height="${PITCH_VB_H}" fill="transparent" style="cursor:crosshair;" onclick="handlePitchPickClick(event,'${rowId}','shot')"/>
       </svg>
     </div>
-    <div style="display:flex;gap:10px;margin-top:4px;flex-wrap:wrap;">
-      ${hasShot? `<button type="button" class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="clearGoalPoint('${rowId}','shot')">✕ Tir</button>` : `<span class="hint">Terrain = tir</span>`}
-      ${hasGoal? `<button type="button" class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="clearGoalPoint('${rowId}','goal')">✕ Entrée</button>` : `<span class="hint">Cage = entrée</span>`}
+    <div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;">
+      <button type="button" class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="openPitchZoom('${rowId}','shot')">⛶ Agrandir</button>
+      ${hasShot? `<button type="button" class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="clearGoalPoint('${rowId}','shot')">✕ Tir</button>` : ''}
+      ${hasGoal? `<button type="button" class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="clearGoalPoint('${rowId}','goal')">✕ Entrée</button>` : ''}
     </div>
   </div>`;
+}
+/* ---------- Agrandissement plein écran du mini-terrain (précision de clic) ---------- */
+let _pitchZoom=null; // {rowId, mode:'shot'|'passer'|'reception'}
+function openPitchZoom(rowId,mode){
+  _pitchZoom={rowId,mode};
+  renderPitchZoomOverlay();
+}
+function closePitchZoom(){
+  _pitchZoom=null;
+  const el=document.getElementById('pitchZoomOverlay');
+  if(el) el.remove();
+  syncGoalSelects();
+}
+function pitchZoomContentHTML(){
+  const row=_fiveFormGoalRows.find(r=>r.rowId===_pitchZoom.rowId);
+  if(!row) return '';
+  const mode=_pitchZoom.mode;
+  let svgInner='', totalH, title;
+  if(mode==='shot'){
+    totalH=GOAL_INSET_H+PITCH_VB_H;
+    title='📍 Tir &amp; entrée dans la cage';
+    const hasShot=(row.shotX!==null&&row.shotX!==undefined);
+    const hasGoal=(row.goalX!==null&&row.goalX!==undefined);
+    let line='',shotDot='',goalDot='',sx,sy,gx,gy;
+    if(hasShot){ sx=row.shotX*PITCH_VB_W; sy=GOAL_INSET_H+row.shotY*PITCH_VB_H; shotDot=`<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="7" fill="#f97316" stroke="#fff" stroke-width="1.4"/>`; }
+    if(hasGoal){ const gd=goalDotXY(row.goalX,row.goalY); gx=gd.x; gy=gd.y; goalDot=`<circle cx="${gx.toFixed(1)}" cy="${gy.toFixed(1)}" r="5" fill="#ef4444" stroke="#fff" stroke-width="1.3"/>`; }
+    if(hasShot&&hasGoal){ line=`<line x1="${sx.toFixed(1)}" y1="${sy.toFixed(1)}" x2="${gx.toFixed(1)}" y2="${gy.toFixed(1)}" stroke="#f97316" stroke-width="1.6" stroke-dasharray="4,3" opacity=".85"/>`; }
+    svgInner=`${goalInsetMarkingsSVG()}<g transform="translate(0,${GOAL_INSET_H})">${pitchFieldMarkingsSVG()}</g>${line}${shotDot}${goalDot}
+      <rect x="${GOAL_INSET_X0}" y="2" width="${GOAL_INSET_W}" height="${GOAL_INSET_H-6}" fill="transparent" style="cursor:crosshair;" onclick="handlePitchZoomClick(event,'goal')"/>
+      <rect x="0" y="${GOAL_INSET_H}" width="${PITCH_VB_W}" height="${PITCH_VB_H}" fill="transparent" style="cursor:crosshair;" onclick="handlePitchZoomClick(event,'shot')"/>`;
+  }else{
+    totalH=PITCH_VB_H;
+    const color = mode==='passer'? '#3b82f6' : '#22c55e';
+    title = mode==='passer'? '🎯 Position du passeur' : '🟢 Réception du tireur';
+    const x=row[mode+'X'], y=row[mode+'Y'];
+    const dot=(x!==null&&x!==undefined)? pitchDotSVG(x,y,color,8) : '';
+    svgInner=`${pitchFieldMarkingsSVG()}${dot}<rect x="0" y="0" width="${PITCH_VB_W}" height="${PITCH_VB_H}" fill="transparent" style="cursor:crosshair;" onclick="handlePitchZoomClick(event,'${mode}')"/>`;
+  }
+  return `<div style="display:flex;flex-direction:column;align-items:center;gap:14px;max-width:380px;margin:0 auto;">
+    <div style="font-weight:800;font-size:15px;color:var(--text);text-align:center;">${title}</div>
+    <div class="hint" style="text-align:center;margin:-8px 0 0;">Clique précisément à l'endroit voulu</div>
+    <div style="border-radius:14px;overflow:hidden;border:2px solid var(--border);width:100%;">
+      <svg viewBox="0 0 ${PITCH_VB_W} ${totalH}" width="100%" style="display:block;background:#15532d;aspect-ratio:${PITCH_VB_W}/${totalH};">${svgInner}</svg>
+    </div>
+    <button type="button" class="btn btn-primary btn-block" onclick="closePitchZoom()">✓ Valider</button>
+  </div>`;
+}
+function renderPitchZoomOverlay(){
+  let el=document.getElementById('pitchZoomOverlay');
+  if(!el){
+    el=document.createElement('div');
+    el.id='pitchZoomOverlay';
+    el.style.cssText='position:fixed;inset:0;z-index:300;background:rgba(4,7,14,.88);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:24px 16px;overflow-y:auto;';
+    el.addEventListener('click',function(ev){ if(ev.target===el) closePitchZoom(); });
+    document.body.appendChild(el);
+  }
+  el.innerHTML=pitchZoomContentHTML();
+}
+function handlePitchZoomClick(ev,field){
+  if(!_pitchZoom) return;
+  const rect=ev.currentTarget.getBoundingClientRect();
+  const x=Math.min(1,Math.max(0,(ev.clientX-rect.left)/rect.width));
+  const y=Math.min(1,Math.max(0,(ev.clientY-rect.top)/rect.height));
+  updateGoalRow(_pitchZoom.rowId, field+'X', x);
+  updateGoalRow(_pitchZoom.rowId, field+'Y', y);
+  renderPitchZoomOverlay();
 }
 function handlePitchPickClick(ev,rowId,field){
   const rect=ev.currentTarget.getBoundingClientRect();
@@ -2337,7 +2404,12 @@ function emptyState(icon,title,sub){
 function openModal(html){
   document.getElementById('modalRoot').innerHTML=`<div class="modal-backdrop" id="modalBackdrop" onclick="if(event.target===this)closeModal()"><div class="modal">${html}</div></div>`;
 }
-function closeModal(){ document.getElementById('modalRoot').innerHTML=''; }
+function closeModal(){
+  document.getElementById('modalRoot').innerHTML='';
+  const zoom=document.getElementById('pitchZoomOverlay');
+  if(zoom) zoom.remove();
+  _pitchZoom=null;
+}
 
 /* ---------- Player form ---------- */
 function openPlayerForm(playerId){
@@ -2825,6 +2897,9 @@ window.updateGoalRowAssister=updateGoalRowAssister;
 window.handlePitchPickClick=handlePitchPickClick;
 window.handleGoalFrameClick=handleGoalFrameClick;
 window.clearGoalPoint=clearGoalPoint;
+window.openPitchZoom=openPitchZoom;
+window.closePitchZoom=closePitchZoom;
+window.handlePitchZoomClick=handlePitchZoomClick;
 window.compressGoalVideo=compressGoalVideo;
 window.syncGoalSelects=syncGoalSelects;
 window.markRemoveVideo=markRemoveVideo;
