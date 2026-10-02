@@ -1223,10 +1223,6 @@ function afterRenderHooks(){
 function viewDashboard(){
   const s=dashboardStats();
   const recentFives=fivesSorted().slice(-5).reverse();
-  const chart=barChart(
-    rankPlayers('goals','total').slice(0,6).map(r=>({label:r.player.name, value:r.value})),
-    '#22c55e'
-  );
   return `
   <div class="hero-banner">
     <div class="hero-pitch"></div>
@@ -1271,7 +1267,8 @@ function viewDashboard(){
     ${leaderCard('⭐ Meilleur G+A', s.topGA, 'G+A')}
   </div>
 
-  ${chart? `<div class="section-title">📊 Top buteurs</div><div class="card chart-wrap">${chart}</div>` : ''}
+  <div class="section-title">🗺️ Carte des actions (tous les Five, comme si tout attaquait en haut)</div>
+  ${allFivesActionsMapHTML()}
 
   <div class="section-title">🕓 Five récents</div>
   ${recentFives.length? `<div class="grid grid-3">${recentFives.map(f=>fiveCardHTML(f)).join('')}</div>` : emptyState('🏟️','Aucun Five pour le moment')}
@@ -1500,25 +1497,105 @@ function clearGoalPoint(rowId,field){
   updateGoalRow(rowId,field+'Y',null);
   syncGoalSelects();
 }
-// Carte en lecture seule : liste de points colorés (buts ou passes d'un joueur), en 2D sur le terrain.
-function pitchMapHTML(points,color,height){
-  if(!points.length) return emptyState('🗺️','Aucune position enregistrée pour ces actions');
+// Carte combinée "buts + passes décisives" en lecture seule (profil joueur / toutes les actions
+// confondues) : buts en orange (avec trait plein vers l'entrée dans la cage si connue), passes
+// décisives en bleu (avec trait pointillé pro-style vers le point de tir du but assisté).
+function actionsMapHTML(goalPts,assistPts,height){
+  if(!goalPts.length && !assistPts.length) return emptyState('🗺️','Aucune position enregistrée pour ces actions');
   let marks='';
-  points.forEach(p=>{
-    const sx=p.x*PITCH_VB_W, sy=p.y*PITCH_VB_H;
-    if(p.goalX!==null && p.goalX!==undefined){
-      const gd=goalEntryXY(p.goalX,'top'); // toujours en haut : le joueur est normalisé comme attaquant vers le haut
-      marks+=`<line x1="${sx.toFixed(1)}" y1="${sy.toFixed(1)}" x2="${gd.x.toFixed(1)}" y2="${gd.y.toFixed(1)}" stroke="${color}" stroke-width="1.3" opacity=".65"/>`;
-      /* pas de rond à l'arrivée dans la cage : trop petit pour rester lisible */
+  assistPts.forEach(p=>{
+    const x1=(p.x*PITCH_VB_W).toFixed(1), y1=(p.y*PITCH_VB_H).toFixed(1);
+    if(p.shotX!==null && p.shotX!==undefined){
+      marks+=`<line x1="${x1}" y1="${y1}" x2="${(p.shotX*PITCH_VB_W).toFixed(1)}" y2="${(p.shotY*PITCH_VB_H).toFixed(1)}" stroke="#3b82f6" stroke-width="1.4" stroke-dasharray="4,3" opacity=".7"/>`;
     }
-    marks+=`<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="5" fill="${color}" stroke="#fff" stroke-width="1.2" style="cursor:pointer;" onclick="navigate('five/${p.fiveId}')">${p.label?`<title>${esc(p.label)}</title>`:''}</circle>`;
+    marks+=`<circle cx="${x1}" cy="${y1}" r="5" fill="#3b82f6" stroke="#fff" stroke-width="1.2" style="cursor:pointer;" onclick="navigate('five/${p.fiveId}')">${p.label?`<title>${esc(p.label)}</title>`:''}</circle>`;
+  });
+  goalPts.forEach(p=>{
+    const x1=(p.x*PITCH_VB_W).toFixed(1), y1=(p.y*PITCH_VB_H).toFixed(1);
+    if(p.goalX!==null && p.goalX!==undefined){
+      const gd=goalEntryXY(p.goalX,'top'); // toujours en haut : normalisé comme si on attaquait en haut
+      marks+=`<line x1="${x1}" y1="${y1}" x2="${gd.x.toFixed(1)}" y2="${gd.y.toFixed(1)}" stroke="#f97316" stroke-width="1.4" opacity=".75"/>`;
+    }
+    marks+=`<circle cx="${x1}" cy="${y1}" r="5" fill="#f97316" stroke="#fff" stroke-width="1.2" style="cursor:pointer;" onclick="navigate('five/${p.fiveId}')">${p.label?`<title>${esc(p.label)}</title>`:''}</circle>`;
   });
   return `<div style="border-radius:10px;overflow:hidden;border:1px solid var(--border);">
-    <svg viewBox="0 0 ${PITCH_VB_W} ${PITCH_VB_H}" width="100%" height="${height||360}" style="display:block;background:#15532d;">
+    <svg viewBox="0 0 ${PITCH_VB_W} ${PITCH_VB_H}" width="100%" height="${height||380}" style="display:block;background:#15532d;">
       ${pitchFieldMarkingsSVG()}
       ${marks}
     </svg>
+    <div style="display:flex;gap:14px;padding:10px 14px;font-size:12px;color:var(--text-dim);flex-wrap:wrap;">
+      <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#f97316;margin-right:5px;"></span>Buts</span>
+      <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#3b82f6;margin-right:5px;"></span>Passes décisives</span>
+    </div>
   </div>`;
+}
+// Carte des actions d'UN joueur (buts + passes décisives), toujours normalisée comme si le
+// joueur attaquait vers le haut : on inverse les DEUX axes (x et y) quand il a attaqué en bas,
+// car passer d'un sens de jeu à l'autre est une rotation à 180°, pas un simple effet miroir.
+function playerActionsMapHTML(playerId,myGoals,myAssistEvents){
+  const goalPts=myGoals.filter(m=>m.goal.shotX!==null&&m.goal.shotX!==undefined).map(m=>{
+    const flip=playerAttackEndInFive(m.five,playerId)==='bottom';
+    const hasGoalEntry=(m.goal.goalX!==null&&m.goal.goalX!==undefined);
+    return {
+      x: flip? 1-m.goal.shotX : m.goal.shotX,
+      y: flip? 1-m.goal.shotY : m.goal.shotY,
+      goalX: hasGoalEntry? (flip? 1-m.goal.goalX : m.goal.goalX) : null,
+      fiveId: m.five.id,
+      label: 'FIVE #'+pad2(fiveNumber(m.five.id))+' · '+fmtDateShort(m.five.date)
+    };
+  });
+  const assistPts=myAssistEvents.filter(m=>m.goal.passerX!==null&&m.goal.passerX!==undefined).map(m=>{
+    const flip=playerAttackEndInFive(m.five,playerId)==='bottom';
+    const hasShot=(m.goal.shotX!==null&&m.goal.shotX!==undefined);
+    return {
+      x: flip? 1-m.goal.passerX : m.goal.passerX,
+      y: flip? 1-m.goal.passerY : m.goal.passerY,
+      shotX: hasShot? (flip? 1-m.goal.shotX : m.goal.shotX) : null,
+      shotY: hasShot? (flip? 1-m.goal.shotY : m.goal.shotY) : null,
+      fiveId: m.five.id,
+      label: 'FIVE #'+pad2(fiveNumber(m.five.id))+' · '+fmtDateShort(m.five.date)
+    };
+  });
+  return actionsMapHTML(goalPts,assistPts,380);
+}
+// Carte des actions de TOUS les Five combinés (menu principal), même principe : chaque but/passe
+// est normalisé comme si l'équipe qui marque avait toujours attaqué vers le haut.
+function allFivesActionsMapHTML(){
+  const goalPts=[], assistPts=[];
+  STATE.goals.forEach(g=>{
+    if(g.isOwnGoal) return;
+    if(g.shotX===null||g.shotX===undefined) return;
+    const five=getFive(g.fiveId);
+    if(!five) return;
+    const part=STATE.participations.find(x=>x.fiveId===five.id && x.playerId===g.scorerId);
+    const team=part? part.teamId : null;
+    if(!team) return;
+    const aSide=five.attackingEndA||'top';
+    const bSide=aSide==='top'?'bottom':'top';
+    const attackEnd= team==='A'? aSide : bSide;
+    const flip=attackEnd==='bottom';
+    const scorer=getPlayer(g.scorerId);
+    const hasGoalEntry=(g.goalX!==null&&g.goalX!==undefined);
+    goalPts.push({
+      x: flip? 1-g.shotX : g.shotX,
+      y: flip? 1-g.shotY : g.shotY,
+      goalX: hasGoalEntry? (flip? 1-g.goalX : g.goalX) : null,
+      fiveId: five.id,
+      label: (scorer? playerName(scorer)+' · ':'')+'FIVE #'+pad2(fiveNumber(five.id))
+    });
+    if(g.passerX!==null && g.passerX!==undefined){
+      const passer=g.assisterId? getPlayer(g.assisterId) : null;
+      assistPts.push({
+        x: flip? 1-g.passerX : g.passerX,
+        y: flip? 1-g.passerY : g.passerY,
+        shotX: flip? 1-g.shotX : g.shotX,
+        shotY: flip? 1-g.shotY : g.shotY,
+        fiveId: five.id,
+        label: (passer? playerName(passer)+' · ':'')+'FIVE #'+pad2(fiveNumber(five.id))
+      });
+    }
+  });
+  return actionsMapHTML(goalPts,assistPts,420);
 }
 // Carte "toutes les actions du Five" : position de tir de chaque but, colorée par équipe,
 // avec un trait plein vers la largeur d'entrée dans la cage (hauteur non suivie, la cage
@@ -1666,6 +1743,9 @@ function viewFiveDetail(fiveId){
   ${noTeam.length? `<div class="notice" style="margin-top:14px;">${noTeam.length} joueur(s) sans équipe assignée : ${noTeam.map(p=>esc(playerName(p.player))).join(', ')}</div>` : ''}
 
   ${future? '' : `
+  <div class="section-title">🗺️ Carte des actions du match</div>
+  ${matchActionsMapHTML(fiveId)}
+
   <div class="section-title">⚽ Buts du match (${goalsTL.length})</div>
   ${goalsTL.length? `<div class="match-feed">
     ${goalsTL.map(g=>{
@@ -1687,9 +1767,6 @@ function viewFiveDetail(fiveId){
       </div>`;
     }).join('')}
   </div>` : emptyState('⚽','Aucun but enregistré pour ce Five')}
-
-  <div class="section-title">🗺️ Carte des actions du match</div>
-  ${matchActionsMapHTML(fiveId)}
   `}
   `;
 }
@@ -1913,11 +1990,8 @@ function viewPlayerProfile(playerId){
   <div class="section-title">📜 Historique (${fs.perFive.length})</div>
   ${historyRows || emptyState('📜','Aucun Five joué')}
 
-  <div class="section-title">🗺️ Carte des buts</div>
-  ${pitchMapHTML(myGoals.filter(m=>m.goal.shotX!==null&&m.goal.shotX!==undefined).map(m=>{
-    const flip=playerAttackEndInFive(m.five,playerId)==='bottom'; // on affiche toujours comme si le joueur attaquait en haut
-    return {x:m.goal.shotX, y:flip? 1-m.goal.shotY : m.goal.shotY, goalX:m.goal.goalX, fiveId:m.five.id, label:'FIVE #'+pad2(fiveNumber(m.five.id))+' · '+fmtDateShort(m.five.date)};
-  }),'#f97316',360)}
+  <div class="section-title">🗺️ Carte des actions (buts &amp; passes décisives)</div>
+  ${playerActionsMapHTML(playerId,myGoals,myAssistEvents)}
 
   <div class="section-title">⚽ Mes buts (${myGoals.length})</div>
   ${myGoals.length? myGoals.map(m=>eventCard(m,'goals')).join('') : emptyState('⚽','Aucun but enregistré')}
@@ -1926,12 +2000,6 @@ function viewPlayerProfile(playerId){
   <div class="section-title">🥅 Buts contre son camp (${myOwnGoals.length})</div>
   ${myOwnGoals.map(m=>eventCard(m,'owngoal')).join('')}
   ` : ''}
-
-  <div class="section-title">🗺️ Carte des passes décisives</div>
-  ${pitchMapHTML(myAssistEvents.filter(m=>m.goal.passerX!==null&&m.goal.passerX!==undefined).map(m=>{
-    const flip=playerAttackEndInFive(m.five,playerId)==='bottom';
-    return {x:m.goal.passerX, y:flip? 1-m.goal.passerY : m.goal.passerY, fiveId:m.five.id, label:'FIVE #'+pad2(fiveNumber(m.five.id))+' · '+fmtDateShort(m.five.date)};
-  }),'#3b82f6')}
 
   <div class="section-title">🎯 Mes passes décisives (${myAssistEvents.length})</div>
   ${myAssistEvents.length? myAssistEvents.map(m=>eventCard(m,'assists')).join('') : emptyState('🎯','Aucune passe décisive enregistrée')}
