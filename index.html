@@ -1340,7 +1340,7 @@ function barChart(data,color){
    dans le but, relié au point de tir par un trait.
    ============================================================ */
 const PITCH_VB_W=160, PITCH_VB_H=280;
-const GOAL_INSET_H=40, GOAL_INSET_W=80;
+const GOAL_INSET_H=40, GOAL_INSET_W=28; /* même largeur que le petit rectangle (surface de but) du terrain */
 const GOAL_INSET_X0=(PITCH_VB_W-GOAL_INSET_W)/2;
 function pitchFieldMarkingsSVG(){
   const w=PITCH_VB_W, h=PITCH_VB_H;
@@ -1353,34 +1353,49 @@ function pitchFieldMarkingsSVG(){
     <rect x="${w/2-14}" y="2" width="28" height="14" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1.3"/>
     <rect x="${w/2-14}" y="${h-16}" width="28" height="14" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1.3"/>`;
 }
-function goalInsetMarkingsSVG(){
-  const x0=GOAL_INSET_X0, w=GOAL_INSET_W, h=GOAL_INSET_H;
-  return `<rect x="${x0}" y="2" width="${w}" height="${h-6}" fill="#0d1420" stroke="#eef1f7" stroke-width="2.5"/>
-    <line x1="${x0}" y1="${(h-6)*0.4+2}" x2="${x0+w}" y2="${(h-6)*0.4+2}" stroke="rgba(238,241,247,.25)" stroke-width="1"/>
-    <line x1="${x0+w/3}" y1="2" x2="${x0+w/3}" y2="${h-4}" stroke="rgba(238,241,247,.2)" stroke-width="1"/>
-    <line x1="${x0+2*w/3}" y1="2" x2="${x0+2*w/3}" y2="${h-4}" stroke="rgba(238,241,247,.2)" stroke-width="1"/>`;
+const GOAL_BOX_H=GOAL_INSET_H-6;
+function goalInsetMarkingsSVG(y0){
+  y0=(y0===undefined||y0===null)? 2 : y0;
+  const x0=GOAL_INSET_X0, w=GOAL_INSET_W, h=GOAL_BOX_H;
+  return `<rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="#0d1420" stroke="#eef1f7" stroke-width="2.5"/>
+    <line x1="${x0}" y1="${(y0+h*0.4).toFixed(1)}" x2="${x0+w}" y2="${(y0+h*0.4).toFixed(1)}" stroke="rgba(238,241,247,.25)" stroke-width="1"/>
+    <line x1="${x0+w/3}" y1="${y0}" x2="${x0+w/3}" y2="${y0+h}" stroke="rgba(238,241,247,.2)" stroke-width="1"/>
+    <line x1="${x0+2*w/3}" y1="${y0}" x2="${x0+2*w/3}" y2="${y0+h}" stroke="rgba(238,241,247,.2)" stroke-width="1"/>`;
 }
 function pitchDotSVG(x,y,color,r,onclick,title){
   if(x===null||x===undefined||y===null||y===undefined) return '';
   const cx=(x*PITCH_VB_W).toFixed(1), cy=(y*PITCH_VB_H).toFixed(1);
   return `<circle cx="${cx}" cy="${cy}" r="${r||6.5}" fill="${color}" stroke="#fff" stroke-width="1.3" ${onclick?`style="cursor:pointer;" onclick="${onclick}"`:''}>${title?`<title>${esc(title)}</title>`:''}</circle>`;
 }
-function goalDotXY(goalX,goalY){ return { x:GOAL_INSET_X0+goalX*GOAL_INSET_W, y:2+goalY*(GOAL_INSET_H-8) }; }
+function goalDotXY(goalX,goalY,y0){
+  y0=(y0===undefined||y0===null)? 2 : y0;
+  return { x:GOAL_INSET_X0+goalX*GOAL_INSET_W, y:y0+goalY*GOAL_BOX_H };
+}
 // Mini-widget cliquable pour un formulaire (place un point sur le terrain, peut être effacé)
-function pitchPickerBlock(rowId,label,x,y,color,field){
-  const hasPoint=(x!==null&&x!==undefined);
-  const dot=hasPoint? pitchDotSVG(x,y,color,7) : '';
-  return `<div style="flex:1;min-width:110px;max-width:140px;">
-    <div class="hint" style="margin:0 0 4px;font-weight:700;color:var(--text-dim);text-transform:uppercase;font-size:10.5px;">${esc(label)}</div>
-    <div style="border-radius:8px;overflow:hidden;border:1px solid var(--border);cursor:zoom-in;" onclick="openPitchZoom('${rowId}','${field}')">
+// Mini-widget combiné : position du passeur + position de réception du tireur, sur UN
+// même terrain, reliées par un trait pointillé (le chemin de la passe décisive).
+function passerReceptionPickerBlock(rowId,passerX,passerY,receptionX,receptionY){
+  const hasPasser=(passerX!==null&&passerX!==undefined);
+  const hasReception=(receptionX!==null&&receptionX!==undefined);
+  let line='';
+  if(hasPasser&&hasReception){
+    const x1=passerX*PITCH_VB_W, y1=passerY*PITCH_VB_H, x2=receptionX*PITCH_VB_W, y2=receptionY*PITCH_VB_H;
+    line=`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#8b5cf6" stroke-width="1.6" stroke-dasharray="4,3" opacity=".85"/>`;
+  }
+  const passerDot=hasPasser? pitchDotSVG(passerX,passerY,'#3b82f6',7) : '';
+  const receptionDot=hasReception? pitchDotSVG(receptionX,receptionY,'#22c55e',7) : '';
+  return `<div style="flex:1;min-width:150px;max-width:190px;">
+    <div class="hint" style="margin:0 0 4px;font-weight:700;color:var(--text-dim);text-transform:uppercase;font-size:10.5px;">🎯 Passe décisive</div>
+    <div style="border-radius:8px;overflow:hidden;border:1px solid var(--border);cursor:zoom-in;" onclick="openPitchZoom('${rowId}','assist')">
       <svg viewBox="0 0 ${PITCH_VB_W} ${PITCH_VB_H}" width="100%" height="170" style="display:block;background:#15532d;pointer-events:none;">
         ${pitchFieldMarkingsSVG()}
-        ${dot}
+        ${line}${passerDot}${receptionDot}
       </svg>
     </div>
-    <div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;">
-      <button type="button" class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="openPitchZoom('${rowId}','${field}')">⛶ Agrandir</button>
-      ${hasPoint? `<button type="button" class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="clearGoalPoint('${rowId}','${field}')">✕ Effacer</button>` : ''}
+    <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">
+      <button type="button" class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="openPitchZoom('${rowId}','assist')">⛶ Agrandir</button>
+      ${hasPasser? `<button type="button" class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="clearGoalPoint('${rowId}','passer')">✕ Passeur</button>` : ''}
+      ${hasReception? `<button type="button" class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="clearGoalPoint('${rowId}','reception')">✕ Réception</button>` : ''}
     </div>
   </div>`;
 }
@@ -1394,7 +1409,7 @@ function shotGoalPickerBlock(rowId,shotX,shotY,goalX,goalY){
   let sx,sy,gx,gy;
   if(hasShot){ sx=shotX*PITCH_VB_W; sy=GOAL_INSET_H+shotY*PITCH_VB_H; shotDot=`<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="7" fill="#f97316" stroke="#fff" stroke-width="1.4"/>`; }
   if(hasGoal){ const gd=goalDotXY(goalX,goalY); gx=gd.x; gy=gd.y; goalDot=`<circle cx="${gx.toFixed(1)}" cy="${gy.toFixed(1)}" r="5" fill="#ef4444" stroke="#fff" stroke-width="1.3"/>`; }
-  if(hasShot && hasGoal){ line=`<line x1="${sx.toFixed(1)}" y1="${sy.toFixed(1)}" x2="${gx.toFixed(1)}" y2="${gy.toFixed(1)}" stroke="#f97316" stroke-width="1.6" stroke-dasharray="4,3" opacity=".85"/>`; }
+  if(hasShot && hasGoal){ line=`<line x1="${sx.toFixed(1)}" y1="${sy.toFixed(1)}" x2="${gx.toFixed(1)}" y2="${gy.toFixed(1)}" stroke="#f97316" stroke-width="1.6" opacity=".9"/>`; }
   return `<div style="flex:1;min-width:150px;max-width:190px;">
     <div class="hint" style="margin:0 0 4px;font-weight:700;color:var(--text-dim);text-transform:uppercase;font-size:10.5px;">📍 Tir &amp; entrée dans la cage</div>
     <div style="border-radius:8px;overflow:hidden;border:1px solid var(--border);cursor:zoom-in;" onclick="openPitchZoom('${rowId}','shot')">
@@ -1429,7 +1444,7 @@ function pitchZoomContentHTML(){
   const row=_fiveFormGoalRows.find(r=>r.rowId===_pitchZoom.rowId);
   if(!row) return '';
   const mode=_pitchZoom.mode;
-  let svgInner='', totalH, title;
+  let svgInner='', totalH, title, toggleHTML='';
   if(mode==='shot'){
     totalH=GOAL_INSET_H+PITCH_VB_H;
     title='📍 Tir &amp; entrée dans la cage';
@@ -1438,10 +1453,28 @@ function pitchZoomContentHTML(){
     let line='',shotDot='',goalDot='',sx,sy,gx,gy;
     if(hasShot){ sx=row.shotX*PITCH_VB_W; sy=GOAL_INSET_H+row.shotY*PITCH_VB_H; shotDot=`<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="7" fill="#f97316" stroke="#fff" stroke-width="1.4"/>`; }
     if(hasGoal){ const gd=goalDotXY(row.goalX,row.goalY); gx=gd.x; gy=gd.y; goalDot=`<circle cx="${gx.toFixed(1)}" cy="${gy.toFixed(1)}" r="5" fill="#ef4444" stroke="#fff" stroke-width="1.3"/>`; }
-    if(hasShot&&hasGoal){ line=`<line x1="${sx.toFixed(1)}" y1="${sy.toFixed(1)}" x2="${gx.toFixed(1)}" y2="${gy.toFixed(1)}" stroke="#f97316" stroke-width="1.6" stroke-dasharray="4,3" opacity=".85"/>`; }
+    if(hasShot&&hasGoal){ line=`<line x1="${sx.toFixed(1)}" y1="${sy.toFixed(1)}" x2="${gx.toFixed(1)}" y2="${gy.toFixed(1)}" stroke="#f97316" stroke-width="1.6" opacity=".9"/>`; }
     svgInner=`${goalInsetMarkingsSVG()}<g transform="translate(0,${GOAL_INSET_H})">${pitchFieldMarkingsSVG()}</g>${line}${shotDot}${goalDot}
       <rect x="${GOAL_INSET_X0}" y="2" width="${GOAL_INSET_W}" height="${GOAL_INSET_H-6}" fill="transparent" style="cursor:crosshair;" onclick="handlePitchZoomClick(event,'goal')"/>
       <rect x="0" y="${GOAL_INSET_H}" width="${PITCH_VB_W}" height="${PITCH_VB_H}" fill="transparent" style="cursor:crosshair;" onclick="handlePitchZoomClick(event,'shot')"/>`;
+  }else if(mode==='assist'){
+    totalH=PITCH_VB_H;
+    title='🎯 Passe décisive';
+    const activeMode=row.assistPickMode||'passer';
+    const hasPasser=(row.passerX!==null&&row.passerX!==undefined);
+    const hasReception=(row.receptionX!==null&&row.receptionX!==undefined);
+    let line='';
+    if(hasPasser&&hasReception){
+      const x1=row.passerX*PITCH_VB_W, y1=row.passerY*PITCH_VB_H, x2=row.receptionX*PITCH_VB_W, y2=row.receptionY*PITCH_VB_H;
+      line=`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#8b5cf6" stroke-width="1.8" stroke-dasharray="5,4" opacity=".9"/>`;
+    }
+    const passerDot=hasPasser? pitchDotSVG(row.passerX,row.passerY,'#3b82f6',8) : '';
+    const receptionDot=hasReception? pitchDotSVG(row.receptionX,row.receptionY,'#22c55e',8) : '';
+    svgInner=`${pitchFieldMarkingsSVG()}${line}${passerDot}${receptionDot}<rect x="0" y="0" width="${PITCH_VB_W}" height="${PITCH_VB_H}" fill="transparent" style="cursor:crosshair;" onclick="handlePitchZoomClick(event,'${activeMode}')"/>`;
+    toggleHTML=`<div style="display:flex;gap:8px;">
+      <button type="button" class="btn btn-sm ${activeMode==='passer'?'btn-primary':'btn-ghost'}" onclick="setAssistPickMode('${row.rowId}','passer')">🎯 Passeur</button>
+      <button type="button" class="btn btn-sm ${activeMode==='reception'?'btn-primary':'btn-ghost'}" onclick="setAssistPickMode('${row.rowId}','reception')">🟢 Réception</button>
+    </div>`;
   }else{
     totalH=PITCH_VB_H;
     const color = mode==='passer'? '#3b82f6' : '#22c55e';
@@ -1450,14 +1483,21 @@ function pitchZoomContentHTML(){
     const dot=(x!==null&&x!==undefined)? pitchDotSVG(x,y,color,8) : '';
     svgInner=`${pitchFieldMarkingsSVG()}${dot}<rect x="0" y="0" width="${PITCH_VB_W}" height="${PITCH_VB_H}" fill="transparent" style="cursor:crosshair;" onclick="handlePitchZoomClick(event,'${mode}')"/>`;
   }
-  return `<div style="display:flex;flex-direction:column;align-items:center;gap:14px;max-width:380px;margin:0 auto;">
+  return `<div style="display:flex;flex-direction:column;align-items:center;gap:14px;max-width:460px;margin:0 auto;">
     <div style="font-weight:800;font-size:15px;color:var(--text);text-align:center;">${title}</div>
+    ${toggleHTML}
     <div class="hint" style="text-align:center;margin:-8px 0 0;">Clique précisément à l'endroit voulu</div>
     <div style="border-radius:14px;overflow:hidden;border:2px solid var(--border);width:100%;">
       <svg viewBox="0 0 ${PITCH_VB_W} ${totalH}" width="100%" style="display:block;background:#15532d;aspect-ratio:${PITCH_VB_W}/${totalH};">${svgInner}</svg>
     </div>
     <button type="button" class="btn btn-primary btn-block" onclick="closePitchZoom()">✓ Valider</button>
   </div>`;
+}
+function setAssistPickMode(rowId,mode){
+  const row=_fiveFormGoalRows.find(r=>r.rowId===rowId);
+  if(!row) return;
+  row.assistPickMode=mode;
+  if(_pitchZoom && _pitchZoom.rowId===rowId) renderPitchZoomOverlay();
 }
 function renderPitchZoomOverlay(){
   let el=document.getElementById('pitchZoomOverlay');
@@ -1512,7 +1552,7 @@ function pitchMapHTML(points,color,height,showGoalInset){
     const sx=p.x*PITCH_VB_W, sy=yOff+p.y*PITCH_VB_H;
     if(showGoalInset && p.goalX!==null && p.goalX!==undefined){
       const gd=goalDotXY(p.goalX,p.goalY);
-      marks+=`<line x1="${sx.toFixed(1)}" y1="${sy.toFixed(1)}" x2="${gd.x.toFixed(1)}" y2="${gd.y.toFixed(1)}" stroke="${color}" stroke-width="1.3" stroke-dasharray="3,3" opacity=".55"/>`;
+      marks+=`<line x1="${sx.toFixed(1)}" y1="${sy.toFixed(1)}" x2="${gd.x.toFixed(1)}" y2="${gd.y.toFixed(1)}" stroke="${color}" stroke-width="1.3" opacity=".65"/>`;
       marks+=`<circle cx="${gd.x.toFixed(1)}" cy="${gd.y.toFixed(1)}" r="4" fill="${color}" stroke="#fff" stroke-width="1" opacity=".9"/>`;
     }
     marks+=`<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="6.5" fill="${color}" stroke="#fff" stroke-width="1.3" style="cursor:pointer;" onclick="navigate('five/${p.fiveId}')">${p.label?`<title>${esc(p.label)}</title>`:''}</circle>`;
@@ -1525,42 +1565,52 @@ function pitchMapHTML(points,color,height,showGoalInset){
     </svg>
   </div>`;
 }
-// Carte "toutes les actions du Five" : tirs colorés par équipe, trait tir -> entrée dans
-// la cage, et trait passeur -> réception pour les buts avec passe décisive.
+// Carte "toutes les actions du Five" : les deux équipes marquent chacune dans leur propre
+// cage (équipe A en haut, équipe B en bas, avec étiquette), trait PLEIN pour tir -> entrée
+// dans la cage, et trait pointillé pour passeur -> réception.
 function matchActionsMapHTML(fiveId){
   const goalsTL=fiveGoalsWithScore(fiveId);
   const withPos=goalsTL.filter(g=>g.shotX!==null&&g.shotX!==undefined&&g.shotY!==null&&g.shotY!==undefined);
   if(!withPos.length) return emptyState('🗺️','Aucune position de tir enregistrée pour ce Five');
-  const totalH=GOAL_INSET_H+PITCH_VB_H;
+  const LABEL_H=16;
+  const topInsetY0=LABEL_H+2;
+  const pitchY0=LABEL_H+GOAL_INSET_H;
+  const bottomInsetY0=pitchY0+PITCH_VB_H+2;
+  const totalH=LABEL_H+GOAL_INSET_H+PITCH_VB_H+GOAL_INSET_H+LABEL_H;
   let marks='';
   withPos.forEach(g=>{
     const color = g.team==='A' ? '#3b82f6' : g.team==='B' ? '#8b5cf6' : '#93a0b8';
     const scorer=getPlayer(g.scorerId);
-    const sx=g.shotX*PITCH_VB_W, sy=GOAL_INSET_H+g.shotY*PITCH_VB_H;
+    const sx=g.shotX*PITCH_VB_W, sy=pitchY0+g.shotY*PITCH_VB_H;
     const hasAssistPos=(g.passerX!==null&&g.passerX!==undefined&&g.receptionX!==null&&g.receptionX!==undefined);
     if(hasAssistPos){
-      const rx=g.receptionX*PITCH_VB_W, ry=GOAL_INSET_H+g.receptionY*PITCH_VB_H;
-      const px=g.passerX*PITCH_VB_W, py=GOAL_INSET_H+g.passerY*PITCH_VB_H;
+      const rx=g.receptionX*PITCH_VB_W, ry=pitchY0+g.receptionY*PITCH_VB_H;
+      const px=g.passerX*PITCH_VB_W, py=pitchY0+g.passerY*PITCH_VB_H;
       marks+=`<line x1="${px.toFixed(1)}" y1="${py.toFixed(1)}" x2="${rx.toFixed(1)}" y2="${ry.toFixed(1)}" stroke="${color}" stroke-width="1.5" stroke-dasharray="3,3" opacity=".7"/>`;
       marks+=`<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="3.5" fill="${color}" opacity=".55"/>`;
     }
-    if(g.goalX!==null && g.goalX!==undefined){
-      const gd=goalDotXY(g.goalX,g.goalY);
-      marks+=`<line x1="${sx.toFixed(1)}" y1="${sy.toFixed(1)}" x2="${gd.x.toFixed(1)}" y2="${gd.y.toFixed(1)}" stroke="${color}" stroke-width="1.3" stroke-dasharray="2,2" opacity=".6"/>`;
+    if(g.goalX!==null && g.goalX!==undefined && (g.team==='A'||g.team==='B')){
+      const insetY0 = g.team==='A'? topInsetY0 : bottomInsetY0;
+      const gd=goalDotXY(g.goalX,g.goalY,insetY0);
+      marks+=`<line x1="${sx.toFixed(1)}" y1="${sy.toFixed(1)}" x2="${gd.x.toFixed(1)}" y2="${gd.y.toFixed(1)}" stroke="${color}" stroke-width="1.3" opacity=".65"/>`;
       marks+=`<circle cx="${gd.x.toFixed(1)}" cy="${gd.y.toFixed(1)}" r="4.5" fill="${color}" stroke="#fff" stroke-width="1"/>`;
     }
     marks+=`<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="6.5" fill="${color}" stroke="#fff" stroke-width="1.3" style="cursor:pointer;" onclick="navigate('player/${g.scorerId}')"><title>${esc(playerName(scorer))} - ${g.isOwnGoal?'CSC':''} ${g.after.a}-${g.after.b}</title></circle>`;
   });
+  const bottomLabelY=bottomInsetY0+GOAL_BOX_H+11;
   return `<div style="border-radius:10px;overflow:hidden;border:1px solid var(--border);">
-    <svg viewBox="0 0 ${PITCH_VB_W} ${totalH}" width="100%" height="460" style="display:block;background:#15532d;">
-      ${goalInsetMarkingsSVG()}
-      <g transform="translate(0,${GOAL_INSET_H})">${pitchFieldMarkingsSVG()}</g>
+    <svg viewBox="0 0 ${PITCH_VB_W} ${totalH}" width="100%" height="520" style="display:block;background:#15532d;">
+      <text x="${PITCH_VB_W/2}" y="${LABEL_H-3}" text-anchor="middle" fill="#3b82f6" font-size="9" font-weight="800">▲ ÉQUIPE A</text>
+      ${goalInsetMarkingsSVG(topInsetY0)}
+      <g transform="translate(0,${pitchY0})">${pitchFieldMarkingsSVG()}</g>
+      ${goalInsetMarkingsSVG(bottomInsetY0)}
+      <text x="${PITCH_VB_W/2}" y="${bottomLabelY}" text-anchor="middle" fill="#8b5cf6" font-size="9" font-weight="800">▼ ÉQUIPE B</text>
       ${marks}
     </svg>
     <div style="display:flex;gap:14px;padding:10px 14px;font-size:12px;color:var(--text-dim);flex-wrap:wrap;">
-      <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#3b82f6;margin-right:5px;"></span>Équipe A</span>
-      <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#8b5cf6;margin-right:5px;"></span>Équipe B</span>
-      <span style="color:var(--text-faint);">Pointillé fin = tir → entrée cage · pointillé large = passeur → réception</span>
+      <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#3b82f6;margin-right:5px;"></span>Équipe A - marque en haut</span>
+      <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#8b5cf6;margin-right:5px;"></span>Équipe B - marque en bas</span>
+      <span style="color:var(--text-faint);">Trait plein = tir → entrée cage · pointillé = passeur → réception</span>
     </div>
   </div>`;
 }
@@ -1904,7 +1954,10 @@ function viewPlayerProfile(playerId){
   ${historyRows || emptyState('📜','Aucun Five joué')}
 
   <div class="section-title">🗺️ Carte des buts</div>
-  ${pitchMapHTML(myGoals.filter(m=>m.goal.shotX!==null&&m.goal.shotX!==undefined).map(m=>({x:m.goal.shotX,y:m.goal.shotY,goalX:m.goal.goalX,goalY:m.goal.goalY,fiveId:m.five.id,label:'FIVE #'+pad2(fiveNumber(m.five.id))+' · '+fmtDateShort(m.five.date)})),'#f97316',360,true)}
+  ${pitchMapHTML(myGoals.filter(m=>m.goal.shotX!==null&&m.goal.shotX!==undefined).map(m=>{
+    const flip=teamOfPlayerInFive(m.five.id,playerId)==='B'; // on affiche toujours comme si le joueur attaquait en haut
+    return {x:m.goal.shotX, y:flip? 1-m.goal.shotY : m.goal.shotY, goalX:m.goal.goalX, goalY:m.goal.goalY, fiveId:m.five.id, label:'FIVE #'+pad2(fiveNumber(m.five.id))+' · '+fmtDateShort(m.five.date)};
+  }),'#f97316',360,true)}
 
   <div class="section-title">⚽ Mes buts (${myGoals.length})</div>
   ${myGoals.length? myGoals.map(m=>eventCard(m,'goals')).join('') : emptyState('⚽','Aucun but enregistré')}
@@ -1915,7 +1968,10 @@ function viewPlayerProfile(playerId){
   ` : ''}
 
   <div class="section-title">🗺️ Carte des passes décisives</div>
-  ${pitchMapHTML(myAssistEvents.filter(m=>m.goal.passerX!==null&&m.goal.passerX!==undefined).map(m=>({x:m.goal.passerX,y:m.goal.passerY,fiveId:m.five.id,label:'FIVE #'+pad2(fiveNumber(m.five.id))+' · '+fmtDateShort(m.five.date)})),'#3b82f6')}
+  ${pitchMapHTML(myAssistEvents.filter(m=>m.goal.passerX!==null&&m.goal.passerX!==undefined).map(m=>{
+    const flip=teamOfPlayerInFive(m.five.id,playerId)==='B';
+    return {x:m.goal.passerX, y:flip? 1-m.goal.passerY : m.goal.passerY, fiveId:m.five.id, label:'FIVE #'+pad2(fiveNumber(m.five.id))+' · '+fmtDateShort(m.five.date)};
+  }),'#3b82f6')}
 
   <div class="section-title">🎯 Mes passes décisives (${myAssistEvents.length})</div>
   ${myAssistEvents.length? myAssistEvents.map(m=>eventCard(m,'assists')).join('') : emptyState('🎯','Aucune passe décisive enregistrée')}
@@ -2578,7 +2634,7 @@ function renderGoalRowsHTML(){
       <div class="form-row"><label>📍 Localisation du but (optionnel)</label>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
           ${shotGoalPickerBlock(row.rowId,row.shotX,row.shotY,row.goalX,row.goalY)}
-          ${(!row.isOwnGoal && row.assisterId) ? pitchPickerBlock(row.rowId,'Position du passeur',row.passerX,row.passerY,'#3b82f6','passer') + pitchPickerBlock(row.rowId,'Réception du tireur',row.receptionX,row.receptionY,'#22c55e','reception') : ''}
+          ${(!row.isOwnGoal && row.assisterId) ? passerReceptionPickerBlock(row.rowId,row.passerX,row.passerY,row.receptionX,row.receptionY) : ''}
         </div>
       </div>
     </div>
@@ -2900,6 +2956,7 @@ window.clearGoalPoint=clearGoalPoint;
 window.openPitchZoom=openPitchZoom;
 window.closePitchZoom=closePitchZoom;
 window.handlePitchZoomClick=handlePitchZoomClick;
+window.setAssistPickMode=setAssistPickMode;
 window.compressGoalVideo=compressGoalVideo;
 window.syncGoalSelects=syncGoalSelects;
 window.markRemoveVideo=markRemoveVideo;
