@@ -1370,65 +1370,54 @@ function pitchDotSVG(x,y,color,r,onclick,title){
   const cx=(x*PITCH_VB_W).toFixed(1), cy=(y*PITCH_VB_H).toFixed(1);
   return `<circle cx="${cx}" cy="${cy}" r="${r||6.5}" fill="${color}" stroke="#fff" stroke-width="1.3" ${onclick?`style="cursor:pointer;" onclick="${onclick}"`:''}>${title?`<title>${esc(title)}</title>`:''}</circle>`;
 }
-// Mini-widget cliquable pour un formulaire (place un point sur le terrain, peut être effacé)
-// Mini-widget combiné : position du passeur + position de réception du tireur, sur UN
-// même terrain, reliées par un trait pointillé (le chemin de la passe décisive).
-function passerReceptionPickerBlock(rowId,passerX,passerY,receptionX,receptionY){
-  const hasPasser=(passerX!==null&&passerX!==undefined);
-  const hasReception=(receptionX!==null&&receptionX!==undefined);
-  let line='';
-  if(hasPasser&&hasReception){
-    const x1=passerX*PITCH_VB_W, y1=passerY*PITCH_VB_H, x2=receptionX*PITCH_VB_W, y2=receptionY*PITCH_VB_H;
-    line=`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#8b5cf6" stroke-width="1.6" stroke-dasharray="4,3" opacity=".85"/>`;
+// Mini-widget combiné pour UNE action (un but) : tir, entrée dans la cage (largeur
+// seulement) et position du passeur, le tout sur le MÊME terrain, comme sur les outils pro
+// (une seule flèche passeur -> tir, pas de point de réception séparé).
+function goalActionLinesSVG(row,insetSide){
+  const hasShot=(row.shotX!==null&&row.shotX!==undefined);
+  const hasGoal=(row.goalX!==null&&row.goalX!==undefined);
+  const hasPasser=(row.passerX!==null&&row.passerX!==undefined);
+  let out='';
+  let sx,sy;
+  if(hasShot){ sx=row.shotX*PITCH_VB_W; sy=row.shotY*PITCH_VB_H; }
+  if(hasPasser && hasShot){
+    const px=row.passerX*PITCH_VB_W, py=row.passerY*PITCH_VB_H;
+    out+=`<line x1="${px.toFixed(1)}" y1="${py.toFixed(1)}" x2="${sx.toFixed(1)}" y2="${sy.toFixed(1)}" stroke="#8b5cf6" stroke-width="1.6" stroke-dasharray="4,3" opacity=".85"/>`;
   }
-  const passerDot=hasPasser? pitchDotSVG(passerX,passerY,'#3b82f6',7) : '';
-  const receptionDot=hasReception? pitchDotSVG(receptionX,receptionY,'#22c55e',7) : '';
-  return `<div style="flex:1;min-width:150px;max-width:190px;">
-    <div class="hint" style="margin:0 0 4px;font-weight:700;color:var(--text-dim);text-transform:uppercase;font-size:10.5px;">🎯 Passe décisive</div>
-    <div style="border-radius:8px;overflow:hidden;border:1px solid var(--border);cursor:zoom-in;" onclick="openPitchZoom('${rowId}','assist')">
-      <svg viewBox="0 0 ${PITCH_VB_W} ${PITCH_VB_H}" width="100%" height="170" style="display:block;background:#15532d;pointer-events:none;">
+  if(hasGoal && hasShot){
+    const gd=goalEntryXY(row.goalX,insetSide);
+    out+=`<line x1="${sx.toFixed(1)}" y1="${sy.toFixed(1)}" x2="${gd.x.toFixed(1)}" y2="${gd.y.toFixed(1)}" stroke="#f97316" stroke-width="1.6" opacity=".9"/>`;
+  }
+  if(hasPasser) out+=pitchDotSVG(row.passerX,row.passerY,'#3b82f6',7);
+  if(hasShot) out+=`<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="7" fill="#f97316" stroke="#fff" stroke-width="1.4"/>`;
+  if(hasGoal){ const gd=goalEntryXY(row.goalX,insetSide); out+=`<circle cx="${gd.x.toFixed(1)}" cy="${gd.y.toFixed(1)}" r="5" fill="#ef4444" stroke="#fff" stroke-width="1.3"/>`; }
+  return out;
+}
+function goalActionPickerBlock(row,insetSide){
+  const hasAssister = !row.isOwnGoal && !!row.assisterId;
+  const hasShot=(row.shotX!==null&&row.shotX!==undefined);
+  const hasGoal=(row.goalX!==null&&row.goalX!==undefined);
+  const hasPasser=(row.passerX!==null&&row.passerX!==undefined);
+  return `<div style="flex:1;min-width:180px;max-width:260px;">
+    <div class="hint" style="margin:0 0 4px;font-weight:700;color:var(--text-dim);text-transform:uppercase;font-size:10.5px;">📍 Action du but (cage en ${insetSide==='top'?'haut':'bas'})</div>
+    <div style="border-radius:8px;overflow:hidden;border:1px solid var(--border);cursor:zoom-in;" onclick="openPitchZoom('${row.rowId}')">
+      <svg viewBox="0 0 ${PITCH_VB_W} ${PITCH_VB_H}" width="100%" height="210" style="display:block;background:#15532d;pointer-events:none;">
         ${pitchFieldMarkingsSVG()}
-        ${line}${passerDot}${receptionDot}
+        ${goalActionLinesSVG(row,insetSide)}
       </svg>
     </div>
     <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">
-      <button type="button" class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="openPitchZoom('${rowId}','assist')">⛶ Agrandir</button>
-      ${hasPasser? `<button type="button" class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="clearGoalPoint('${rowId}','passer')">✕ Passeur</button>` : ''}
-      ${hasReception? `<button type="button" class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="clearGoalPoint('${rowId}','reception')">✕ Réception</button>` : ''}
-    </div>
-  </div>`;
-}
-// Mini-widget : position de tir sur le terrain + trait plein vers la largeur d'entrée dans
-// la cage (la hauteur n'est pas suivie, seulement la largeur, insetSide dit si la cage visée
-// est en haut ou en bas selon l'équipe du buteur et le sens de jeu choisi pour le Five).
-function shotPickerBlock(rowId,shotX,shotY,goalX,insetSide){
-  insetSide = insetSide||'top';
-  const hasShot=(shotX!==null&&shotX!==undefined);
-  const hasGoal=(goalX!==null&&goalX!==undefined);
-  let shotDot='', goalDot='', line='';
-  let sx,sy,gx,gy;
-  if(hasShot){ sx=shotX*PITCH_VB_W; sy=shotY*PITCH_VB_H; shotDot=`<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="7" fill="#f97316" stroke="#fff" stroke-width="1.4"/>`; }
-  if(hasGoal){ const gd=goalEntryXY(goalX,insetSide); gx=gd.x; gy=gd.y; goalDot=`<circle cx="${gx.toFixed(1)}" cy="${gy.toFixed(1)}" r="5" fill="#ef4444" stroke="#fff" stroke-width="1.3"/>`; }
-  if(hasShot&&hasGoal){ line=`<line x1="${sx.toFixed(1)}" y1="${sy.toFixed(1)}" x2="${gx.toFixed(1)}" y2="${gy.toFixed(1)}" stroke="#f97316" stroke-width="1.6" opacity=".9"/>`; }
-  return `<div style="flex:1;min-width:150px;max-width:190px;">
-    <div class="hint" style="margin:0 0 4px;font-weight:700;color:var(--text-dim);text-transform:uppercase;font-size:10.5px;">📍 Tir &amp; entrée (largeur, cage en ${insetSide==='top'?'haut':'bas'})</div>
-    <div style="border-radius:8px;overflow:hidden;border:1px solid var(--border);cursor:zoom-in;" onclick="openPitchZoom('${rowId}','shot')">
-      <svg viewBox="0 0 ${PITCH_VB_W} ${PITCH_VB_H}" width="100%" height="170" style="display:block;background:#15532d;pointer-events:none;">
-        ${pitchFieldMarkingsSVG()}
-        ${line}${shotDot}${goalDot}
-      </svg>
-    </div>
-    <div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;">
-      <button type="button" class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="openPitchZoom('${rowId}','shot')">⛶ Agrandir</button>
-      ${hasShot? `<button type="button" class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="clearGoalPoint('${rowId}','shot')">✕ Tir</button>` : ''}
-      ${hasGoal? `<button type="button" class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="clearGoalPoint('${rowId}','goal')">✕ Entrée</button>` : ''}
+      <button type="button" class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="openPitchZoom('${row.rowId}')">⛶ Agrandir</button>
+      ${hasShot? `<button type="button" class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="clearGoalPoint('${row.rowId}','shot')">✕ Tir</button>` : ''}
+      ${hasGoal? `<button type="button" class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="clearGoalPoint('${row.rowId}','goal')">✕ Entrée</button>` : ''}
+      ${(hasAssister&&hasPasser)? `<button type="button" class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="clearGoalPoint('${row.rowId}','passer')">✕ Passeur</button>` : ''}
     </div>
   </div>`;
 }
 /* ---------- Agrandissement plein écran du mini-terrain (précision de clic) ---------- */
-let _pitchZoom=null; // {rowId, mode:'shot'|'passer'|'reception'}
-function openPitchZoom(rowId,mode){
-  _pitchZoom={rowId,mode};
+let _pitchZoom=null; // {rowId}
+function openPitchZoom(rowId){
+  _pitchZoom={rowId};
   renderPitchZoomOverlay();
 }
 function closePitchZoom(){
@@ -1440,62 +1429,34 @@ function closePitchZoom(){
 function pitchZoomContentHTML(){
   const row=_fiveFormGoalRows.find(r=>r.rowId===_pitchZoom.rowId);
   if(!row) return '';
-  const mode=_pitchZoom.mode;
-  let svgInner='', totalH, title, toggleHTML='';
-  if(mode==='shot'){
-    const insetSide=goalInsetSideForRow(row);
-    totalH=PITCH_VB_H;
-    title='📍 Tir &amp; entrée dans la cage (largeur seulement, cage en '+(insetSide==='top'?'haut':'bas')+')';
-    const hasShot=(row.shotX!==null&&row.shotX!==undefined);
-    const hasGoal=(row.goalX!==null&&row.goalX!==undefined);
-    let line='',shotDot='',goalDot='',sx,sy,gx,gy;
-    if(hasShot){ sx=row.shotX*PITCH_VB_W; sy=row.shotY*PITCH_VB_H; shotDot=`<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="7" fill="#f97316" stroke="#fff" stroke-width="1.4"/>`; }
-    if(hasGoal){ const gd=goalEntryXY(row.goalX,insetSide); gx=gd.x; gy=gd.y; goalDot=`<circle cx="${gx.toFixed(1)}" cy="${gy.toFixed(1)}" r="5" fill="#ef4444" stroke="#fff" stroke-width="1.3"/>`; }
-    if(hasShot&&hasGoal){ line=`<line x1="${sx.toFixed(1)}" y1="${sy.toFixed(1)}" x2="${gx.toFixed(1)}" y2="${gy.toFixed(1)}" stroke="#f97316" stroke-width="1.6" opacity=".9"/>`; }
-    const stripY0 = insetSide==='top'? 2 : PITCH_VB_H-16;
-    svgInner=`${pitchFieldMarkingsSVG()}${line}${shotDot}${goalDot}
-      <rect x="0" y="0" width="${PITCH_VB_W}" height="${PITCH_VB_H}" fill="transparent" style="cursor:crosshair;" onclick="handlePitchZoomClick(event,'shot')"/>
-      <rect x="${GOAL_INSET_X0}" y="${stripY0}" width="${GOAL_INSET_W}" height="14" fill="rgba(239,68,68,.18)" style="cursor:crosshair;" onclick="handlePitchZoomClick(event,'goal')"/>`;
-  }else if(mode==='assist'){
-    totalH=PITCH_VB_H;
-    title='🎯 Passe décisive';
-    const activeMode=row.assistPickMode||'passer';
-    const hasPasser=(row.passerX!==null&&row.passerX!==undefined);
-    const hasReception=(row.receptionX!==null&&row.receptionX!==undefined);
-    let line='';
-    if(hasPasser&&hasReception){
-      const x1=row.passerX*PITCH_VB_W, y1=row.passerY*PITCH_VB_H, x2=row.receptionX*PITCH_VB_W, y2=row.receptionY*PITCH_VB_H;
-      line=`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#8b5cf6" stroke-width="1.8" stroke-dasharray="5,4" opacity=".9"/>`;
-    }
-    const passerDot=hasPasser? pitchDotSVG(row.passerX,row.passerY,'#3b82f6',8) : '';
-    const receptionDot=hasReception? pitchDotSVG(row.receptionX,row.receptionY,'#22c55e',8) : '';
-    svgInner=`${pitchFieldMarkingsSVG()}${line}${passerDot}${receptionDot}<rect x="0" y="0" width="${PITCH_VB_W}" height="${PITCH_VB_H}" fill="transparent" style="cursor:crosshair;" onclick="handlePitchZoomClick(event,'${activeMode}')"/>`;
-    toggleHTML=`<div style="display:flex;gap:8px;">
-      <button type="button" class="btn btn-sm ${activeMode==='passer'?'btn-primary':'btn-ghost'}" onclick="setAssistPickMode('${row.rowId}','passer')">🎯 Passeur</button>
-      <button type="button" class="btn btn-sm ${activeMode==='reception'?'btn-primary':'btn-ghost'}" onclick="setAssistPickMode('${row.rowId}','reception')">🟢 Réception</button>
-    </div>`;
-  }else{
-    totalH=PITCH_VB_H;
-    const color = mode==='passer'? '#3b82f6' : '#22c55e';
-    title = mode==='passer'? '🎯 Position du passeur' : '🟢 Réception du tireur';
-    const x=row[mode+'X'], y=row[mode+'Y'];
-    const dot=(x!==null&&x!==undefined)? pitchDotSVG(x,y,color,8) : '';
-    svgInner=`${pitchFieldMarkingsSVG()}${dot}<rect x="0" y="0" width="${PITCH_VB_W}" height="${PITCH_VB_H}" fill="transparent" style="cursor:crosshair;" onclick="handlePitchZoomClick(event,'${mode}')"/>`;
-  }
+  const insetSide=goalInsetSideForRow(row);
+  const hasAssister = !row.isOwnGoal && !!row.assisterId;
+  let mode=row.pickMode||'shot';
+  if(mode==='passer' && !hasAssister) mode='shot';
+  const stripY0 = insetSide==='top'? 2 : PITCH_VB_H-16;
+  const pitchRect = mode==='goal'
+    ? `<rect x="${GOAL_INSET_X0}" y="${stripY0}" width="${GOAL_INSET_W}" height="14" fill="rgba(239,68,68,.28)" style="cursor:crosshair;" onclick="handlePitchZoomClick(event,'goal')"/>`
+    : `<rect x="0" y="0" width="${PITCH_VB_W}" height="${PITCH_VB_H}" fill="transparent" style="cursor:crosshair;" onclick="handlePitchZoomClick(event,'${mode}')"/>`;
+  const svgInner=`${pitchFieldMarkingsSVG()}${goalActionLinesSVG(row,insetSide)}${pitchRect}`;
+  const toggleHTML=`<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+    <button type="button" class="btn btn-sm ${mode==='shot'?'btn-primary':'btn-ghost'}" onclick="setPickMode('${row.rowId}','shot')">📍 Tir</button>
+    <button type="button" class="btn btn-sm ${mode==='goal'?'btn-primary':'btn-ghost'}" onclick="setPickMode('${row.rowId}','goal')">🥅 Entrée (cage en ${insetSide==='top'?'haut':'bas'})</button>
+    ${hasAssister? `<button type="button" class="btn btn-sm ${mode==='passer'?'btn-primary':'btn-ghost'}" onclick="setPickMode('${row.rowId}','passer')">🎯 Passeur</button>` : ''}
+  </div>`;
   return `<div style="display:flex;flex-direction:column;align-items:center;gap:14px;max-width:460px;margin:0 auto;">
-    <div style="font-weight:800;font-size:15px;color:var(--text);text-align:center;">${title}</div>
+    <div style="font-weight:800;font-size:15px;color:var(--text);text-align:center;">⚽ Action du but</div>
     ${toggleHTML}
-    <div class="hint" style="text-align:center;margin:-8px 0 0;">Clique précisément à l'endroit voulu</div>
+    <div class="hint" style="text-align:center;margin:-8px 0 0;">${mode==='goal'? "Clique dans la cage à la largeur voulue (la hauteur n'est pas suivie)" : "Clique précisément à l'endroit voulu"}</div>
     <div style="border-radius:14px;overflow:hidden;border:2px solid var(--border);width:100%;">
-      <svg viewBox="0 0 ${PITCH_VB_W} ${totalH}" width="100%" style="display:block;background:#15532d;aspect-ratio:${PITCH_VB_W}/${totalH};">${svgInner}</svg>
+      <svg viewBox="0 0 ${PITCH_VB_W} ${PITCH_VB_H}" width="100%" style="display:block;background:#15532d;aspect-ratio:${PITCH_VB_W}/${PITCH_VB_H};">${svgInner}</svg>
     </div>
     <button type="button" class="btn btn-primary btn-block" onclick="closePitchZoom()">✓ Valider</button>
   </div>`;
 }
-function setAssistPickMode(rowId,mode){
+function setPickMode(rowId,mode){
   const row=_fiveFormGoalRows.find(r=>r.rowId===rowId);
   if(!row) return;
-  row.assistPickMode=mode;
+  row.pickMode=mode;
   if(_pitchZoom && _pitchZoom.rowId===rowId) renderPitchZoomOverlay();
 }
 function renderPitchZoomOverlay(){
@@ -1582,11 +1543,11 @@ function matchActionsMapHTML(fiveId){
     const color = g.team==='A' ? '#3b82f6' : g.team==='B' ? '#8b5cf6' : '#93a0b8';
     const scorer=getPlayer(g.scorerId);
     const sx=g.shotX*PITCH_VB_W, sy=pitchY0+g.shotY*PITCH_VB_H;
-    const hasAssistPos=(g.passerX!==null&&g.passerX!==undefined&&g.receptionX!==null&&g.receptionX!==undefined);
+    const hasAssistPos=(g.passerX!==null&&g.passerX!==undefined);
     if(hasAssistPos){
-      const rx=g.receptionX*PITCH_VB_W, ry=pitchY0+g.receptionY*PITCH_VB_H;
+      // Style "pro" : une seule flèche passeur -> tir (pas de point de réception séparé).
       const px=g.passerX*PITCH_VB_W, py=pitchY0+g.passerY*PITCH_VB_H;
-      marks+=`<line x1="${px.toFixed(1)}" y1="${py.toFixed(1)}" x2="${rx.toFixed(1)}" y2="${ry.toFixed(1)}" stroke="${color}" stroke-width="1.5" stroke-dasharray="3,3" opacity=".7"/>`;
+      marks+=`<line x1="${px.toFixed(1)}" y1="${py.toFixed(1)}" x2="${sx.toFixed(1)}" y2="${sy.toFixed(1)}" stroke="${color}" stroke-width="1.5" stroke-dasharray="3,3" opacity=".7"/>`;
       marks+=`<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="3.5" fill="${color}" opacity=".55"/>`;
     }
     if(g.goalX!==null && g.goalX!==undefined && (g.team==='A'||g.team==='B')){
@@ -1609,7 +1570,7 @@ function matchActionsMapHTML(fiveId){
     <div style="display:flex;gap:14px;padding:10px 14px;font-size:12px;color:var(--text-dim);flex-wrap:wrap;">
       <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${topColor};margin-right:5px;"></span>Équipe ${topTeam} - marque en haut</span>
       <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${bottomColor};margin-right:5px;"></span>Équipe ${bottomTeam} - marque en bas</span>
-      <span style="color:var(--text-faint);">Trait plein = tir → entrée (largeur) · pointillé = passeur → réception</span>
+      <span style="color:var(--text-faint);">Trait plein = tir → entrée (largeur) · pointillé = passeur → tir</span>
     </div>
   </div>`;
 }
@@ -2556,7 +2517,7 @@ function openFiveForm(fiveId){
   _fiveFormAttackingEndA = f? (f.attackingEndA||'top') : 'top';
   _fiveFormGoalRows = goals.map(g=>({rowId:uid('row'), goalId:g.id, scorerId:g.scorerId, assisterId:g.assisterId, isOwnGoal:!!g.isOwnGoal, existingVideo:videoForGoal(g.id),
     shotX:g.shotX??null, shotY:g.shotY??null, goalX:g.goalX??null, goalY:g.goalY??null,
-    passerX:g.passerX??null, passerY:g.passerY??null, receptionX:g.receptionX??null, receptionY:g.receptionY??null}));
+    passerX:g.passerX??null, passerY:g.passerY??null, pickMode:'shot'}));
   if(_fiveFormGoalRows.length===0) _fiveFormGoalRows=[];
 
   const allPlayers=[...STATE.players].sort((a,b)=>a.name.localeCompare(b.name));
@@ -2674,8 +2635,7 @@ function renderGoalRowsHTML(){
       </div>
       <div class="form-row"><label>📍 Localisation du but (optionnel)</label>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          ${shotPickerBlock(row.rowId,row.shotX,row.shotY,row.goalX,goalInsetSideForRow(row))}
-          ${(!row.isOwnGoal && row.assisterId) ? passerReceptionPickerBlock(row.rowId,row.passerX,row.passerY,row.receptionX,row.receptionY) : ''}
+          ${goalActionPickerBlock(row,goalInsetSideForRow(row))}
         </div>
       </div>
     </div>
@@ -2685,7 +2645,7 @@ function toggleOwnGoal(rowId, checked){
   const row=_fiveFormGoalRows.find(r=>r.rowId===rowId);
   if(!row) return;
   row.isOwnGoal = checked;
-  if(checked){ row.assisterId = ''; row.passerX=null; row.passerY=null; row.receptionX=null; row.receptionY=null; }
+  if(checked){ row.assisterId = ''; row.passerX=null; row.passerY=null; }
   syncGoalSelects();
 }
 function syncGoalSelects(){
@@ -2693,7 +2653,7 @@ function syncGoalSelects(){
 }
 function addGoalRow(){
   _fiveFormGoalRows.push({rowId:uid('row'), goalId:null, scorerId:'', assisterId:'', isOwnGoal:false, existingVideo:null,
-    shotX:null, shotY:null, goalX:null, goalY:null, passerX:null, passerY:null, receptionX:null, receptionY:null});
+    shotX:null, shotY:null, goalX:null, goalY:null, passerX:null, passerY:null, pickMode:'shot'});
   syncGoalSelects();
 }
 function removeGoalRow(rowId){
@@ -2709,7 +2669,7 @@ function updateGoalRowAssister(rowId,value){
   const row=_fiveFormGoalRows.find(r=>r.rowId===rowId);
   if(!row) return;
   row.assisterId=value;
-  if(!value){ row.passerX=null; row.passerY=null; row.receptionX=null; row.receptionY=null; }
+  if(!value){ row.passerX=null; row.passerY=null; }
   syncGoalSelects();
 }
 function onGoalVideoChange(rowId,file){
@@ -2873,7 +2833,7 @@ async function submitFiveForm(ev,fiveId){
       shotX: row.shotX??null, shotY: row.shotY??null,
       goalX: row.goalX??null, goalY: null,
       passerX: hasAssistPos? (row.passerX??null) : null, passerY: hasAssistPos? (row.passerY??null) : null,
-      receptionX: hasAssistPos? (row.receptionX??null) : null, receptionY: hasAssistPos? (row.receptionY??null) : null
+      receptionX: null, receptionY: null
     });
   }
   for(const gid of existingGoalIds){
@@ -2998,7 +2958,7 @@ window.clearGoalPoint=clearGoalPoint;
 window.openPitchZoom=openPitchZoom;
 window.closePitchZoom=closePitchZoom;
 window.handlePitchZoomClick=handlePitchZoomClick;
-window.setAssistPickMode=setAssistPickMode;
+window.setPickMode=setPickMode;
 window.setAttackingEndA=setAttackingEndA;
 window.compressGoalVideo=compressGoalVideo;
 window.syncGoalSelects=syncGoalSelects;
