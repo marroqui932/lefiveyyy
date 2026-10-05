@@ -738,12 +738,14 @@ function goalFromDb(r){ return { id:r.id, fiveId:r.five_id, order:r.goal_order, 
   goalX:r.goal_x===null||r.goal_x===undefined?null:Number(r.goal_x), goalY:r.goal_y===null||r.goal_y===undefined?null:Number(r.goal_y),
   passerX:r.passer_x===null||r.passer_x===undefined?null:Number(r.passer_x), passerY:r.passer_y===null||r.passer_y===undefined?null:Number(r.passer_y),
   receptionX:r.reception_x===null||r.reception_x===undefined?null:Number(r.reception_x), receptionY:r.reception_y===null||r.reception_y===undefined?null:Number(r.reception_y),
+  minute:r.minute===null||r.minute===undefined?null:Number(r.minute),
   createdAt:r.created_at? new Date(r.created_at).getTime():Date.now() }; }
 function goalToDb(g){ return { id:g.id, five_id:g.fiveId, goal_order:g.order, scorer_id:g.scorerId, assister_id:g.isOwnGoal? null : (g.assisterId||null), is_own_goal:!!g.isOwnGoal, video_url:g.videoUrl||null, video_filename:g.videoFilename||null, video_path:g.videoPath||null, video_size:g.videoSize||0,
   shot_x: g.shotX===undefined?null:g.shotX, shot_y: g.shotY===undefined?null:g.shotY,
   goal_x: g.goalX===undefined?null:g.goalX, goal_y: g.goalY===undefined?null:g.goalY,
   passer_x: g.passerX===undefined?null:g.passerX, passer_y: g.passerY===undefined?null:g.passerY,
-  reception_x: g.receptionX===undefined?null:g.receptionX, reception_y: g.receptionY===undefined?null:g.receptionY }; }
+  reception_x: g.receptionX===undefined?null:g.receptionX, reception_y: g.receptionY===undefined?null:g.receptionY,
+  minute: (g.minute===undefined||g.minute===null||isNaN(g.minute))?null:g.minute }; }
 
 /* ---------------- Repositories ----------------
    Point d'accès unique aux données. Ici elles parlent à Supabase. */
@@ -1104,7 +1106,22 @@ function computeRecords(){
     });
     return {value:maxV, holders};
   }
+  function goalMinuteRecord(mode){
+    const goals=STATE.goals.filter(g=>!g.isOwnGoal && g.minute!==null && g.minute!==undefined && getFive(g.fiveId) && !isFutureFive(getFive(g.fiveId)));
+    if(!goals.length) return null;
+    const ms=goals.map(g=>g.minute);
+    const best= mode==='min'? Math.min(...ms) : Math.max(...ms);
+    const seen=new Set(), holders=[];
+    goals.filter(g=>g.minute===best).forEach(g=>{
+      if(seen.has(g.scorerId)) return; seen.add(g.scorerId);
+      const pl=getPlayer(g.scorerId);
+      if(pl) holders.push({player:pl, five:getFive(g.fiveId)});
+    });
+    return {value:best, holders};
+  }
   return {
+    fastestGoal: goalMinuteRecord('min'),
+    latestGoal: goalMinuteRecord('max'),
     mostGoalsInFive: topByFive(pf=>pf.goals),
     mostAssistsInFive: topByFive(pf=>pf.assists),
     mostGAInFive: topByFive(pf=>pf.ga),
@@ -1210,6 +1227,89 @@ function rankByRating(view){
   rows.sort((a,b)=>b.value-a.value);
   let rank=0, prev=null;
   return rows.map((r,i)=>{ if(r.value!==prev){ rank=i+1; prev=r.value; } return Object.assign({},r,{rank}); });
+}
+/* ============================================================
+   MINUTES DES BUTS : histogramme + courbe du score
+   ============================================================ */
+let minuteBin=5;
+function timeToMin(t){ const m=/^(\d{1,2}):(\d{2})/.exec(t||''); return m? (+m[1])*60+(+m[2]) : null; }
+function minuteHistogramSVG(minutes,bin,color){
+  if(!minutes.length) return emptyState('⏱️','Aucune minute enregistrée pour le moment');
+  const maxMin=Math.max(...minutes);
+  const nb=Math.floor(maxMin/bin)+1;
+  const counts=new Array(nb).fill(0);
+  minutes.forEach(m=>{ counts[Math.floor(m/bin)]++; });
+  const W=600,H=200,padL=26,padR=8,padT=18,padB=30;
+  const maxC=Math.max(...counts);
+  const bw=(W-padL-padR)/nb;
+  const innerH=H-padT-padB;
+  const every=Math.max(1,Math.ceil(nb/12));
+  let bars='', labels='';
+  counts.forEach((c,i)=>{
+    const h=c/maxC*innerH, x=padL+i*bw;
+    if(c>0){
+      bars+=`<rect x="${(x+1).toFixed(1)}" y="${(padT+innerH-h).toFixed(1)}" width="${Math.max(1,bw-2).toFixed(1)}" height="${h.toFixed(1)}" rx="2" fill="${color||'var(--primary)'}"><title>${bin>1? (i*bin)+"'-"+((i+1)*bin-1)+"'" : (i*bin)+"'"} : ${c} but${c>1?'s':''}</title></rect>`;
+      bars+=`<text x="${(x+bw/2).toFixed(1)}" y="${(padT+innerH-h-4).toFixed(1)}" text-anchor="middle" font-size="10" fill="currentColor">${c}</text>`;
+    }
+    if(i%every===0) labels+=`<text x="${(x+bw/2).toFixed(1)}" y="${H-12}" text-anchor="middle" font-size="10" fill="currentColor" opacity=".7">${i*bin}'</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;color:var(--text-dim);">
+    <line x1="${padL}" y1="${padT+innerH}" x2="${W-padR}" y2="${padT+innerH}" stroke="currentColor" opacity=".35"/>
+    ${bars}${labels}
+  </svg>`;
+}
+function minuteBinPillsHTML(){
+  return `<div class="filter-pills">${[1,5,10].map(b=>`<div class="pill ${b===minuteBin?'active':''}" onclick="minuteBin=${b};render();">${b} min</div>`).join('')}</div>`;
+}
+function fiveScoreCurveSVG(fiveId){
+  const five=getFive(fiveId);
+  const all=fiveGoalsWithScore(fiveId);
+  const list=all.filter(g=>g.minute!==null && g.minute!==undefined && (g.team==='A'||g.team==='B'))
+    .map((g,i)=>Object.assign({},g,{_i:i})).sort((a,b)=>a.minute-b.minute || a._i-b._i);
+  if(!list.length) return '';
+  const missing=all.filter(g=>g.minute===null||g.minute===undefined).length;
+  const dur=(five && timeToMin(five.timeStart)!==null && timeToMin(five.timeEnd)!==null)? timeToMin(five.timeEnd)-timeToMin(five.timeStart) : null;
+  const lastMin=list[list.length-1].minute;
+  const xMax=Math.max(10, Math.ceil(Math.max(lastMin, dur>0?dur:0)/5)*5);
+  let a=0,b=0;
+  const pts=[{m:0,a:0,b:0}];
+  list.forEach(g=>{ if(g.team==='A') a++; else b++; pts.push({m:g.minute,a,b,g}); });
+  const yMax=Math.max(a,b,1);
+  const W=600,H=230,padL=30,padR=14,padT=14,padB=28;
+  const X=(m)=>padL+m/xMax*(W-padL-padR), Y=(v)=>padT+(1-v/yMax)*(H-padT-padB);
+  const stepPath=(key)=>{
+    let d=`M ${X(0).toFixed(1)} ${Y(0).toFixed(1)}`;
+    let prev=0;
+    pts.slice(1).forEach(pt=>{ d+=` L ${X(pt.m).toFixed(1)} ${Y(prev).toFixed(1)} L ${X(pt.m).toFixed(1)} ${Y(pt[key]).toFixed(1)}`; prev=pt[key]; });
+    d+=` L ${X(xMax).toFixed(1)} ${Y(prev).toFixed(1)}`;
+    return d;
+  };
+  const COL_A='#3b82f6', COL_B='#ef4444';
+  let grid='';
+  const yStep=yMax>12? 2 : 1;
+  for(let v=0; v<=yMax; v+=yStep) grid+=`<line x1="${padL}" y1="${Y(v).toFixed(1)}" x2="${W-padR}" y2="${Y(v).toFixed(1)}" stroke="currentColor" opacity=".12"/><text x="${padL-6}" y="${(Y(v)+3).toFixed(1)}" text-anchor="end" font-size="10" fill="currentColor" opacity=".7">${v}</text>`;
+  const xStep= xMax>60? 10 : 5;
+  for(let m=0; m<=xMax; m+=xStep) grid+=`<text x="${X(m).toFixed(1)}" y="${H-10}" text-anchor="middle" font-size="10" fill="currentColor" opacity=".7">${m}'</text>`;
+  const dots=pts.slice(1).map(pt=>{
+    const g=pt.g, col=g.team==='A'?COL_A:COL_B, sc=getPlayer(g.scorerId);
+    return `<circle cx="${X(pt.m).toFixed(1)}" cy="${Y(pt[g.team==='A'?'a':'b']).toFixed(1)}" r="4.5" fill="${col}" stroke="#fff" stroke-width="1.2"><title>${pt.m}' - ${g.isOwnGoal?'CSC ':''}${esc(playerName(sc))} (${g.after.a}-${g.after.b})</title></circle>`;
+  }).join('');
+  return `<div class="card" style="padding:12px;">
+    <svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;color:var(--text-dim);">
+      ${grid}
+      <path d="${stepPath('a')}" fill="none" stroke="${COL_A}" stroke-width="2.4" stroke-linejoin="round"/>
+      <path d="${stepPath('b')}" fill="none" stroke="${COL_B}" stroke-width="2.4" stroke-linejoin="round" stroke-dasharray="1,0"/>
+      ${dots}
+    </svg>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--text-dim);padding:6px 4px 0;">
+      <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${COL_A};margin-right:5px;"></span>Équipe A</span>
+      <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${COL_B};margin-right:5px;"></span>Équipe B</span>
+      ${missing? `<span style="color:var(--text-faint);">${missing} but${missing>1?'s':''} sans minute non affiché${missing>1?'s':''}</span>`:''}
+    </div>
+  </div>`;
+}
+function playedGoalMinutes(){
+  return STATE.goals.filter(g=>g.minute!==null && g.minute!==undefined && getFive(g.fiveId) && !isFutureFive(getFive(g.fiveId))).map(g=>g.minute);
 }
 function dashboardStats(){
   const sorted=fivesSorted();
@@ -1393,6 +1493,11 @@ function viewDashboard(){
 
   <div class="section-title">🗺️ Carte des actions (tous les Five, comme si tout attaquait en haut)</div>
   ${allFivesActionsMapHTML()}
+
+  <div class="section-title">⏱️ Buts par minute (tous les Five)</div>
+  ${minuteBinPillsHTML()}
+  <div class="card" style="padding:12px;">${minuteHistogramSVG(playedGoalMinutes(),minuteBin)}</div>
+  <div class="hint" style="margin:6px 0 0 4px;">${playedGoalMinutes().length} but${playedGoalMinutes().length>1?'s':''} sur ${STATE.goals.length} ont une minute enregistrée.</div>
 
   <div class="section-title">🕓 Five récents</div>
   ${recentFives.length? `<div class="grid grid-3">${recentFives.map(f=>fiveCardHTML(f)).join('')}</div>` : emptyState('🏟️','Aucun Five pour le moment')}
@@ -1871,6 +1976,8 @@ function viewFiveDetail(fiveId){
   <div class="section-title">🗺️ Carte des actions du match</div>
   ${matchActionsMapHTML(fiveId)}
 
+  ${goalsTL.some(g=>g.minute!==null&&g.minute!==undefined)? `<div class="section-title">📈 Évolution du score</div>${fiveScoreCurveSVG(fiveId)}` : ''}
+
   <div class="section-title">⚽ Buts du match (${goalsTL.length})</div>
   ${goalsTL.length? `<div class="match-feed">
     ${goalsTL.map(g=>{
@@ -1880,7 +1987,7 @@ function viewFiveDetail(fiveId){
       const isA=g.team==='A';
       const isB=g.team==='B';
       const cardHtml=`<div class="feed-card ${isA?'team-a':isB?'team-b':'team-none'}">
-        <div class="feed-score-chip">${g.after.a}-${g.after.b}</div>
+        <div class="feed-score-chip">${g.minute!==null&&g.minute!==undefined? g.minute+"' · " : ''}${g.after.a}-${g.after.b}</div>
         <div class="feed-scorer">${g.isOwnGoal? '🥅 CSC '+esc(playerName(scorer)) : '⚽ '+esc(playerName(scorer))}</div>
         <div class="feed-assist">${g.isOwnGoal? 'But contre son camp' : (assister? '🎯 '+esc(playerName(assister)) : '🎯 Sans passe décisive')}</div>
         ${video? `<button class="play-btn" onclick="playVideo('${video.id}')">▶️ Voir le but</button>` : ''}
@@ -2163,6 +2270,22 @@ function viewPlayerProfile(playerId){
 
   <div class="section-title">📜 Historique (${fs.perFive.length})</div>
   ${historyRows || emptyState('📜','Aucun Five joué')}
+
+  ${(()=>{
+    const mins=myGoals.filter(m=>m.goal.minute!==null&&m.goal.minute!==undefined).map(m=>m.goal.minute);
+    if(!mins.length) return '';
+    const avg=mins.reduce((a,b)=>a+b,0)/mins.length;
+    return `<div class="section-title">⏱️ Timing de mes buts</div>
+    <div class="card" style="padding:0;">
+      <div class="stat-strip">
+        ${statChip('⏱️','Minute moyenne', fmtNum(avg,1)+"'", 'blue')}
+        ${statChip('⚡','Plus tôt', Math.min(...mins)+"'", 'green')}
+        ${statChip('🕓','Plus tard', Math.max(...mins)+"'", 'gold')}
+        ${statChip('⚽','Buts avec minute', mins.length+'/'+myGoals.length, 'purple')}
+      </div>
+    </div>
+    <div class="card" style="padding:12px;margin-top:14px;">${minuteHistogramSVG(mins,5,'#f97316')}</div>`;
+  })()}
 
   <div class="section-title">🗺️ Carte des actions (buts &amp; passes décisives)</div>
   ${playerActionsMapHTML(playerId,myGoals,myAssistEvents)}
@@ -2573,6 +2696,8 @@ function viewRecords(){
     ${row('⭐','Meilleur total G+A', rec.mostTotalGA,'G+A','G+A','purple')}
     ${row('🔥','Plus longue série avec un but', rec.longestGoalStreak,'Five','Five','red')}
     ${row('🔥','Plus longue série avec une contribution (G+A)', rec.longestGAStreak,'Five','Five','red')}
+    ${row('⚡','But le plus rapide', rec.fastestGoal,'minute','minutes','green')}
+    ${row('🕓','But le plus tardif', rec.latestGoal,'minute','minutes','gold')}
   </div>
   `;
 }
@@ -2764,7 +2889,7 @@ function openFiveForm(fiveId){
   _fiveFormAttackingEndA = f? (f.attackingEndA||'top') : 'top';
   _fiveFormGoalRows = goals.map(g=>({rowId:uid('row'), goalId:g.id, scorerId:g.scorerId, assisterId:g.assisterId, isOwnGoal:!!g.isOwnGoal, existingVideo:videoForGoal(g.id),
     shotX:g.shotX??null, shotY:g.shotY??null, goalX:g.goalX??null, goalY:g.goalY??null,
-    passerX:g.passerX??null, passerY:g.passerY??null, pickMode:'shot'}));
+    passerX:g.passerX??null, passerY:g.passerY??null, minute:g.minute??null, pickMode:'shot'}));
   if(_fiveFormGoalRows.length===0) _fiveFormGoalRows=[];
 
   const allPlayers=[...STATE.players].sort((a,b)=>a.name.localeCompare(b.name));
@@ -2861,6 +2986,9 @@ function renderGoalRowsHTML(){
   return _fiveFormGoalRows.map((row,idx)=>`
     <div class="goal-row" data-row="${row.rowId}">
       <div class="goal-row-head"><span>BUT #${idx+1}</span><button type="button" class="btn btn-sm btn-danger" onclick="removeGoalRow('${row.rowId}')">🗑️</button></div>
+      <div class="form-row"><label>⏱️ Minute du but${row.goalId?'':' *'}</label>
+        <input class="input" type="number" min="0" max="120" step="1" inputmode="numeric" placeholder="ex : 12" value="${row.minute===null||row.minute===undefined?'':row.minute}" style="max-width:140px;" oninput="updateGoalMinute('${row.rowId}',this.value)">
+      </div>
       <div class="form-2col">
         <div class="form-row"><label>Buteur</label><select class="input" data-field="scorer" onchange="updateGoalRow('${row.rowId}','scorerId',this.value)"><option value="">- Choisir -</option>${options(row.scorerId)}</select></div>
         <div class="form-row"><label>Passeur</label><select class="input" data-field="assister" ${row.isOwnGoal?'disabled':''} onchange="updateGoalRowAssister('${row.rowId}',this.value)"><option value="">🎯 Sans passe décisive</option>${options(row.isOwnGoal?'':row.assisterId)}</select></div>
@@ -2900,7 +3028,7 @@ function syncGoalSelects(){
 }
 function addGoalRow(){
   _fiveFormGoalRows.push({rowId:uid('row'), goalId:null, scorerId:'', assisterId:'', isOwnGoal:false, existingVideo:null,
-    shotX:null, shotY:null, goalX:null, goalY:null, passerX:null, passerY:null, pickMode:'shot'});
+    shotX:null, shotY:null, goalX:null, goalY:null, passerX:null, passerY:null, minute:null, pickMode:'shot'});
   syncGoalSelects();
 }
 function removeGoalRow(rowId){
@@ -2911,6 +3039,18 @@ function updateGoalRow(rowId,field,value){
   const row=_fiveFormGoalRows.find(r=>r.rowId===rowId);
   if(!row) return;
   row[field]=value;
+}
+function updateGoalMinute(rowId,value){
+  const row=_fiveFormGoalRows.find(r=>r.rowId===rowId);
+  if(!row) return;
+  const n=Number(value);
+  row.minute = (value===''||isNaN(n))? null : Math.max(0,Math.min(120,Math.round(n)));
+}
+/* Si tous les buts ont une minute, on les enregistre dans l'ordre chronologique (le score évolue donc
+   correctement même si les buts ont été saisis dans le désordre). Sinon on garde l'ordre de saisie. */
+function rowsOrderedByMinute(rows){
+  const all=rows.length>0 && rows.every(r=>r.minute!==null && r.minute!==undefined);
+  return all? [...rows].sort((a,b)=>a.minute-b.minute) : rows;
 }
 function updateGoalRowAssister(rowId,value){
   const row=_fiveFormGoalRows.find(r=>r.rowId===rowId);
@@ -3022,6 +3162,7 @@ async function submitFiveForm(ev,fiveId){
   if(overlap.length){ toast('Un joueur ne peut pas être dans les deux équipes','error'); return false; }
   for(const row of _fiveFormGoalRows){
     if(!row.scorerId){ toast('Chaque but doit avoir un buteur','error'); return false; }
+    if(!row.goalId && (row.minute===null||row.minute===undefined)){ toast('Chaque nouveau but doit avoir une minute','error'); return false; }
   }
 
   const existing=fiveId? getFive(fiveId) : null;
@@ -3050,7 +3191,7 @@ async function submitFiveForm(ev,fiveId){
   const keptIds=[];
   let order=0;
   const submitBtn=document.querySelector('#fiveForm button[type="submit"]');
-  for(const row of _fiveFormGoalRows){
+  for(const row of rowsOrderedByMinute(_fiveFormGoalRows)){
     order++;
     const goalId=row.goalId || uid('goal');
     keptIds.push(goalId);
@@ -3080,7 +3221,8 @@ async function submitFiveForm(ev,fiveId){
       shotX: row.shotX??null, shotY: row.shotY??null,
       goalX: row.goalX??null, goalY: null,
       passerX: hasAssistPos? (row.passerX??null) : null, passerY: hasAssistPos? (row.passerY??null) : null,
-      receptionX: null, receptionY: null
+      receptionX: null, receptionY: null,
+      minute: row.minute??null
     });
   }
   for(const gid of existingGoalIds){
@@ -3206,6 +3348,7 @@ window.openPitchZoom=openPitchZoom;
 window.closePitchZoom=closePitchZoom;
 window.handlePitchZoomClick=handlePitchZoomClick;
 window.setPickMode=setPickMode;
+window.updateGoalMinute=updateGoalMinute;
 window.setAttackingEndA=setAttackingEndA;
 window.setCountryPick=setCountryPick;
 window.compressGoalVideo=compressGoalVideo;
