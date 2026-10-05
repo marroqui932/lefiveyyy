@@ -1251,41 +1251,6 @@ function minuteHistogramSVG(minutes,bin,color){
     ${bars}${labels}
   </svg>`;
 }
-/* Courbe du nombre de buts par tranche de minutes (lissée, sans dépassement) */
-function minuteCurveSVG(minutes,bin,color){
-  if(!minutes.length) return emptyState('⏱️','Aucune minute enregistrée pour le moment');
-  const nb=Math.floor(Math.max(...minutes)/bin)+1;
-  const counts=new Array(nb).fill(0);
-  minutes.forEach(m=>{ counts[Math.floor(m/bin)]++; });
-  const col=color||'var(--primary)';
-  const W=600,H=220,padL=28,padR=14,padT=20,padB=30;
-  const innerW=W-padL-padR, innerH=H-padT-padB;
-  const maxC=Math.max(...counts);
-  const X=(i)=> nb===1? padL+innerW/2 : padL+i/(nb-1)*innerW;
-  const Y=(c)=> padT+innerH-(c/maxC)*innerH;
-  const pts=counts.map((c,i)=>({x:X(i),y:Y(c),c,i}));
-  let d=`M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
-  if(pts.length===2) d+=` L ${pts[1].x.toFixed(1)} ${pts[1].y.toFixed(1)}`;
-  else if(pts.length>2){
-    for(let i=1;i<pts.length-1;i++){
-      const mx=(pts[i].x+pts[i+1].x)/2, my=(pts[i].y+pts[i+1].y)/2;
-      d+=` Q ${pts[i].x.toFixed(1)} ${pts[i].y.toFixed(1)} ${mx.toFixed(1)} ${my.toFixed(1)}`;
-    }
-    d+=` L ${pts[pts.length-1].x.toFixed(1)} ${pts[pts.length-1].y.toFixed(1)}`;
-  }
-  const base=padT+innerH;
-  const area=`${d} L ${pts[pts.length-1].x.toFixed(1)} ${base} L ${pts[0].x.toFixed(1)} ${base} Z`;
-  const every=Math.max(1,Math.ceil(nb/12));
-  const labels=pts.filter(pt=>pt.i%every===0).map(pt=>`<text x="${pt.x.toFixed(1)}" y="${H-12}" text-anchor="middle" font-size="10" fill="currentColor" opacity=".7">${pt.i*bin}'</text>`).join('');
-  const dots=pts.map(pt=>`<circle cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="${pt.c>0?3.8:2.2}" fill="${col}" opacity="${pt.c>0?1:.45}"><title>${(pt.i*bin)+"'-"+((pt.i+1)*bin-1)+"'"} : ${pt.c} but${pt.c>1?'s':''}</title></circle>`).join('');
-  const peak=pts.filter(pt=>pt.c===maxC).map(pt=>`<text x="${pt.x.toFixed(1)}" y="${(pt.y-8).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700" fill="currentColor">${pt.c}</text>`).join('');
-  return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;color:var(--text-dim);">
-    <line x1="${padL}" y1="${base}" x2="${W-padR}" y2="${base}" stroke="currentColor" opacity=".35"/>
-    <path d="${area}" fill="${col}" opacity=".16"/>
-    <path d="${d}" fill="none" stroke="${col}" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
-    ${dots}${peak}${labels}
-  </svg>`;
-}
 function fiveScoreCurveSVG(fiveId){
   const five=getFive(fiveId);
   const all=fiveGoalsWithScore(fiveId);
@@ -1528,7 +1493,7 @@ function viewDashboard(){
   ${allFivesActionsMapHTML()}
 
   <div class="section-title">⏱️ Buts par minute (tous les Five)</div>
-  <div class="card" style="padding:12px;">${minuteCurveSVG(playedGoalMinutes(),MINUTE_BIN)}</div>
+  <div class="card" style="padding:12px;">${minuteHistogramSVG(playedGoalMinutes(),MINUTE_BIN)}</div>
   <div class="hint" style="margin:6px 0 0 4px;">${playedGoalMinutes().length} but${playedGoalMinutes().length>1?'s':''} sur ${STATE.goals.length} ont une minute enregistrée.</div>
 
   <div class="section-title">🕓 Five récents</div>
