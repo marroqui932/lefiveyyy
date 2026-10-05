@@ -2150,11 +2150,11 @@ function viewRankings(){
   <div class="page-header"><div><h1>🏆 Classements</h1><div class="page-sub">Classements dynamiques calculés automatiquement</div></div></div>
   <div class="filter-pills">${filterOptions.map(o=>`<div class="pill ${o.v===rankingFilter?'active':''}" onclick="rankingFilter='${o.v}';render();">${o.l}</div>`).join('')}</div>
   <div class="grid grid-4">
-    <div class="card"><div class="section-title" style="margin-top:0;">⭐ Indice de performance</div>${rankListHTML(ratingList,1,'/10')}<div class="hint" style="margin-top:8px;">Note globale /10 (totaux, pas de moyenne) : le meilleur de chaque critère a 10. Identique quel que soit le filtre.</div></div>
     <div class="card"><div class="section-title" style="margin-top:0;">⚽ Meilleurs buteurs</div>${rankListHTML(scorers,rankingFilter.startsWith('avg')?2:0)}</div>
     <div class="card"><div class="section-title" style="margin-top:0;">🎯 Meilleurs passeurs</div>${rankListHTML(assisters,rankingFilter.startsWith('avg')?2:0)}</div>
     <div class="card"><div class="section-title" style="margin-top:0;">⭐ Plus décisifs (G+A)</div>${rankListHTML(gaList,rankingFilter.startsWith('avg')?2:0)}</div>
     <div class="card"><div class="section-title" style="margin-top:0;">✅ Plus de victoires</div>${rankListHTML(winsList,0,rankingFilter.startsWith('avg')?'%':'')}</div>
+    <div class="card"><div class="section-title" style="margin-top:0;">⭐ Indice de performance</div>${rankListHTML(ratingList,1,'/10')}<div class="hint" style="margin-top:10px;line-height:1.6;">Note /10 : le meilleur de chaque critère a 10, les autres en proportion (totaux, pas de moyenne).<br>Critères retenus : ${PERF_CRITERIA.map(c=>`${c.icon} ${c.label} ${c.weight}%`).join(' · ')}</div></div>
     <div class="card"><div class="section-title" style="margin-top:0;">🔥 Plus clutch</div>${rankListHTML(clutchList,rankingFilter.startsWith('avg')?2:0)}<div class="hint" style="margin-top:8px;">Buts qui égalisent ou font passer devant</div></div>
   </div>
   `;
