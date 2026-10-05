@@ -1123,13 +1123,12 @@ function computeRecords(){
    Note d'un pilier = moyenne pondérée de ses critères ; note finale = moyenne pondérée des piliers.
    Un critère (ou pilier) que personne n'a (meilleur = 0) est ignoré et les poids sont renormalisés.
    ============================================================ */
-const FAR_SHOT_DIST=100;  /* tir "de loin" : distance (unités du terrain 160x280) entre le tir et la cage attaquée */
-const LONG_PASS_DIST=90;  /* passe "longue" : distance passeur -> tir */
+const LONG_PASS_DIST=90;  /* passe "longue" : distance passeur -> tir (unités du terrain 160x280) */
 const PERF_PILLARS=[
   {key:'attack', icon:'⚔️', label:'Attaque', weight:25, criteria:[
     {key:'goals',   icon:'⚽', label:'Buts',                    weight:50},
-    {key:'multi',   icon:'🎩', label:'Doublés et +',            weight:25, hint:'Five avec 2 buts ou plus'},
-    {key:'sniper',  icon:'🎯', label:'Sniper',                  weight:25, hint:'buts marqués de loin'}
+    {key:'hattrick',icon:'🎩', label:'Triplés et +',            weight:25, hint:'Five avec 3 buts ou plus'},
+    {key:'impact',  icon:'💥', label:'Impact sur son équipe',   weight:25, hint:'part des buts de son équipe (buts + passes)'}
   ]},
   {key:'creation', icon:'🎨', label:'Création', weight:25, criteria:[
     {key:'assists',  icon:'🅰️', label:'Passes décisives',       weight:50},
@@ -1137,109 +1136,58 @@ const PERF_PILLARS=[
     {key:'longpass', icon:'🚀', label:'Passes longues',         weight:25, hint:'passes décisives de loin'}
   ]},
   {key:'result', icon:'🏆', label:'Résultat', weight:25, criteria:[
-    {key:'wins',   icon:'✅', label:'Victoires',                weight:30},
-    {key:'diff',   icon:'±',  label:'Différence de buts',       weight:25, hint:'buts marqués - encaissés par son équipe'},
-    {key:'solid',  icon:'🧤', label:'Défense solide',           weight:20, hint:'Five où son équipe encaisse 0 ou 1 but'},
-    {key:'impact', icon:'💥', label:'Impact sur son équipe',    weight:25, hint:'part des buts de son équipe (buts + passes)'}
+    {key:'wins',   icon:'✅', label:'Victoires',                weight:100}
   ]},
   {key:'decisive', icon:'🔥', label:'Moments décisifs', weight:25, criteria:[
-    {key:'clutch',   icon:'🔥', label:'Clutch',                 weight:30, hint:'égalise ou fait passer devant'},
-    {key:'winning',  icon:'🏁', label:'But de la victoire',     weight:25, hint:'le but qui fait gagner le match'},
-    {key:'opener',   icon:'🥇', label:'Ouvreur',                weight:15, hint:'premier but du match'},
-    {key:'buzzer',   icon:'🔔', label:'Buzzer beater',          weight:15, hint:'dernier but, qui change le résultat'},
-    {key:'comeback', icon:'🧨', label:'Remontada',              weight:15, hint:'but alors que son équipe est menée de 2+ et gagne'}
+    {key:'clutch', icon:'🔥', label:'Clutch',                   weight:100, hint:'égalise ou fait passer devant'}
   ]}
 ];
-function fiveEventInfo(fiveId){
-  const list=fiveGoalsWithScore(fiveId);
-  if(!list.length) return null;
-  const fin=list[list.length-1].after;
-  const winner= fin.a>fin.b? 'A' : fin.b>fin.a? 'B' : null;
-  const diffBefore=(g,t)=> t==='A'? g.before.a-g.before.b : g.before.b-g.before.a;
-  let winningGoalId=null; const comeback=new Set();
-  if(winner){
-    list.forEach(g=>{
-      if(g.team!==winner) return;
-      const d=diffBefore(g,winner);
-      if(d===0) winningGoalId=g.id;      /* dernier but qui fait passer le vainqueur devant */
-      if(d<=-2) comeback.add(g.id);
-    });
-  }
-  const last=list[list.length-1];
-  return {list, winningGoalId, comeback, buzzerId: clutchKind(last)? last.id : null};
-}
 function performanceRatings(){
   const players=STATE.players.filter(p=>playerFiveIds(p.id).map(getFive).filter(Boolean).some(f=>!isFutureFive(f)));
-  const infoCache={};
-  const info=(fiveId)=> (fiveId in infoCache)? infoCache[fiveId] : (infoCache[fiveId]=fiveEventInfo(fiveId));
   const dist=(x1,y1,x2,y2)=>Math.hypot(x1-x2,y1-y2);
   const raw=players.map(p=>{
     const fs=playerFullStats(p.id);
-    const v={goals:fs.goals, assists:fs.assists, wins:fs.wins, clutch:fs.clutch,
-             multi:0, sniper:0, longpass:0, diff:0, solid:0, opener:0, winning:0, buzzer:0, comeback:0};
+    const v={goals:fs.goals, assists:fs.assists, wins:fs.wins, clutch:fs.clutch, hattrick:0, longpass:0, generous:0, impact:0};
     const mates=new Set();
     let contrib=0, teamGoalsTot=0;
     fs.perFive.forEach(pf=>{
-      const five=pf.five, inf=info(five.id);
-      if(pf.goals>=2) v.multi++;
+      const five=pf.five;
+      if(pf.goals>=3) v.hattrick++;
+      const list=fiveGoalsWithScore(five.id);
       const team=teamOfPlayerInFive(five.id,p.id);
-      if(inf){
-        if(team){
-          const tg=inf.list.filter(g=>g.team===team).length;
-          const og=inf.list.filter(g=>g.team && g.team!==team).length;
-          v.diff+=tg-og;
-          if(og<=1) v.solid++;
-          teamGoalsTot+=tg; contrib+=pf.goals+pf.assists;
-        }
-        const first=inf.list[0];
-        if(first.scorerId===p.id && !first.isOwnGoal) v.opener++;
-        inf.list.forEach(g=>{
-          if(g.isOwnGoal) return;
-          if(g.scorerId===p.id){
-            if(g.id===inf.winningGoalId) v.winning++;
-            if(g.id===inf.buzzerId) v.buzzer++;
-            if(inf.comeback.has(g.id)) v.comeback++;
-            if(g.shotX!==null && g.shotX!==undefined){
-              const end=playerAttackEndInFive(five,p.id);
-              if(end){
-                const gy= end==='top'? 0 : PITCH_VB_H;
-                if(dist(g.shotX*PITCH_VB_W,g.shotY*PITCH_VB_H,PITCH_VB_W/2,gy)>=FAR_SHOT_DIST) v.sniper++;
-              }
-            }
-          }
-          if(g.assisterId===p.id){
-            mates.add(g.scorerId);
-            if(g.passerX!==null && g.passerX!==undefined && g.shotX!==null && g.shotX!==undefined &&
-               dist(g.passerX*PITCH_VB_W,g.passerY*PITCH_VB_H,g.shotX*PITCH_VB_W,g.shotY*PITCH_VB_H)>=LONG_PASS_DIST) v.longpass++;
-          }
-        });
+      if(team){
+        teamGoalsTot+=list.filter(g=>g.team===team).length;
+        contrib+=pf.goals+pf.assists;
       }
+      list.forEach(g=>{
+        if(g.isOwnGoal || g.assisterId!==p.id) return;
+        mates.add(g.scorerId);
+        if(g.passerX!==null && g.passerX!==undefined && g.shotX!==null && g.shotX!==undefined &&
+           dist(g.passerX*PITCH_VB_W,g.passerY*PITCH_VB_H,g.shotX*PITCH_VB_W,g.shotY*PITCH_VB_H)>=LONG_PASS_DIST) v.longpass++;
+      });
     });
     v.generous=mates.size;
     const share= teamGoalsTot? contrib/teamGoalsTot : null;
     v.impact= share===null? 0 : share;
     return {player:p, fs, v, share};
   });
-  /* meilleur du groupe par critère (valeurs négatives ramenées à 0 pour le calcul) */
+  /* meilleur du groupe par critère */
   const best={};
   PERF_PILLARS.forEach(pl=>pl.criteria.forEach(c=>{ best[c.key]=raw.reduce((m,r)=>Math.max(m,r.v[c.key]),0); }));
   const pl_=(n,a,b)=> n+' '+(n>1?b:a);
   const out={};
   raw.forEach(r=>{
     const disp={
-      goals:pl_(r.v.goals,'but','buts'), multi:pl_(r.v.multi,'Five','Five'), sniper:pl_(r.v.sniper,'but de loin','buts de loin'),
+      goals:pl_(r.v.goals,'but','buts'), hattrick:pl_(r.v.hattrick,'triplé','triplés'), impact:(r.share===null?'-':Math.round(r.share*100)+'% des buts de son équipe'),
       assists:pl_(r.v.assists,'passe','passes'), generous:pl_(r.v.generous,'partenaire','partenaires'), longpass:pl_(r.v.longpass,'passe longue','passes longues'),
-      wins:pl_(r.v.wins,'victoire','victoires'), diff:(r.v.diff>0?'+':'')+r.v.diff, solid:pl_(r.v.solid,'Five','Five'),
-      impact:(r.share===null?'-':Math.round(r.share*100)+'% des buts de son équipe'),
-      clutch:pl_(r.v.clutch,'but clutch','buts clutch'), winning:pl_(r.v.winning,'but décisif','buts décisifs'),
-      opener:pl_(r.v.opener,'ouverture','ouvertures'), buzzer:pl_(r.v.buzzer,'buzzer','buzzers'), comeback:pl_(r.v.comeback,'but de remontada','buts de remontada')
+      wins:pl_(r.v.wins,'victoire','victoires'), clutch:pl_(r.v.clutch,'but clutch','buts clutch')
     };
     let gSum=0, gAcc=0;
     const pillars=PERF_PILLARS.map(pl=>{
       let wSum=0, acc=0;
       const parts=pl.criteria.map(c=>{
         const b=best[c.key];
-        const score= b>0? Math.max(0,r.v[c.key])/b*10 : null;
+        const score= b>0? r.v[c.key]/b*10 : null;
         if(score!==null){ wSum+=c.weight; acc+=c.weight*score; }
         return {key:c.key,icon:c.icon,label:c.label,weight:c.weight,hint:c.hint||'',score,display:disp[c.key]};
       });
