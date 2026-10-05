@@ -1140,20 +1140,17 @@ function computeRecords(){
    Note d'un pilier = moyenne pondérée de ses critères ; note finale = moyenne pondérée des piliers.
    Un critère (ou pilier) que personne n'a (meilleur = 0) est ignoré et les poids sont renormalisés.
    ============================================================ */
-const LONG_PASS_DIST=90;  /* passe "longue" : distance passeur -> tir (unités du terrain 160x280) */
 const PERF_PILLARS=[
   {key:'attack', icon:'⚔️', label:'Attaque', weight:25, criteria:[
-    {key:'goals',   icon:'⚽', label:'Buts',                    weight:50},
-    {key:'hattrick',icon:'🎩', label:'Triplés et +',            weight:25, hint:'Five avec 3 buts ou plus'},
-    {key:'impact',  icon:'💥', label:'Impact sur son équipe',   weight:25, hint:'part des buts de son équipe (buts + passes)'}
+    {key:'goals',   icon:'⚽', label:'Buts',                    weight:100}
   ]},
   {key:'creation', icon:'🎨', label:'Création', weight:25, criteria:[
-    {key:'assists',  icon:'🅰️', label:'Passes décisives',       weight:50},
-    {key:'generous', icon:'🤝', label:'Généreux',               weight:25, hint:'partenaires différents servis'},
-    {key:'longpass', icon:'🚀', label:'Passes longues',         weight:25, hint:'passes décisives de loin'}
+    {key:'assists',  icon:'🅰️', label:'Passes décisives',       weight:65},
+    {key:'generous', icon:'🤝', label:'Généreux',               weight:35, hint:'partenaires différents servis'}
   ]},
   {key:'result', icon:'🏆', label:'Résultat', weight:25, criteria:[
-    {key:'wins',   icon:'✅', label:'Victoires',                weight:100}
+    {key:'wins',   icon:'✅', label:'Victoires',                weight:50},
+    {key:'impact', icon:'💥', label:'Impact sur son équipe',    weight:50, hint:'part des buts de son équipe (buts + passes)'}
   ]},
   {key:'decisive', icon:'🔥', label:'Moments décisifs', weight:25, criteria:[
     {key:'clutch', icon:'🔥', label:'Clutch',                   weight:100, hint:'égalise ou fait passer devant'}
@@ -1161,15 +1158,13 @@ const PERF_PILLARS=[
 ];
 function performanceRatings(){
   const players=STATE.players.filter(p=>playerFiveIds(p.id).map(getFive).filter(Boolean).some(f=>!isFutureFive(f)));
-  const dist=(x1,y1,x2,y2)=>Math.hypot(x1-x2,y1-y2);
   const raw=players.map(p=>{
     const fs=playerFullStats(p.id);
-    const v={goals:fs.goals, assists:fs.assists, wins:fs.wins, clutch:fs.clutch, hattrick:0, longpass:0, generous:0, impact:0};
+    const v={goals:fs.goals, assists:fs.assists, wins:fs.wins, clutch:fs.clutch, generous:0, impact:0};
     const mates=new Set();
     let contrib=0, teamGoalsTot=0;
     fs.perFive.forEach(pf=>{
       const five=pf.five;
-      if(pf.goals>=3) v.hattrick++;
       const list=fiveGoalsWithScore(five.id);
       const team=teamOfPlayerInFive(five.id,p.id);
       if(team){
@@ -1179,8 +1174,6 @@ function performanceRatings(){
       list.forEach(g=>{
         if(g.isOwnGoal || g.assisterId!==p.id) return;
         mates.add(g.scorerId);
-        if(g.passerX!==null && g.passerX!==undefined && g.shotX!==null && g.shotX!==undefined &&
-           dist(g.passerX*PITCH_VB_W,g.passerY*PITCH_VB_H,g.shotX*PITCH_VB_W,g.shotY*PITCH_VB_H)>=LONG_PASS_DIST) v.longpass++;
       });
     });
     v.generous=mates.size;
@@ -1195,8 +1188,8 @@ function performanceRatings(){
   const out={};
   raw.forEach(r=>{
     const disp={
-      goals:pl_(r.v.goals,'but','buts'), hattrick:pl_(r.v.hattrick,'triplé','triplés'), impact:(r.share===null?'-':Math.round(r.share*100)+'% des buts de son équipe'),
-      assists:pl_(r.v.assists,'passe','passes'), generous:pl_(r.v.generous,'partenaire','partenaires'), longpass:pl_(r.v.longpass,'passe longue','passes longues'),
+      goals:pl_(r.v.goals,'but','buts'), impact:(r.share===null?'-':Math.round(r.share*100)+'% des buts de son équipe'),
+      assists:pl_(r.v.assists,'passe','passes'), generous:pl_(r.v.generous,'partenaire','partenaires'),
       wins:pl_(r.v.wins,'victoire','victoires'), clutch:pl_(r.v.clutch,'but clutch','buts clutch')
     };
     let gSum=0, gAcc=0;
@@ -1231,7 +1224,7 @@ function rankByRating(view){
 /* ============================================================
    MINUTES DES BUTS : histogramme + courbe du score
    ============================================================ */
-let minuteBin=5;
+const MINUTE_BIN=5; /* tranche de minutes des courbes/histogrammes */
 function timeToMin(t){ const m=/^(\d{1,2}):(\d{2})/.exec(t||''); return m? (+m[1])*60+(+m[2]) : null; }
 function minuteHistogramSVG(minutes,bin,color){
   if(!minutes.length) return emptyState('⏱️','Aucune minute enregistrée pour le moment');
@@ -1258,8 +1251,40 @@ function minuteHistogramSVG(minutes,bin,color){
     ${bars}${labels}
   </svg>`;
 }
-function minuteBinPillsHTML(){
-  return `<div class="filter-pills">${[1,5,10].map(b=>`<div class="pill ${b===minuteBin?'active':''}" onclick="minuteBin=${b};render();">${b} min</div>`).join('')}</div>`;
+/* Courbe du nombre de buts par tranche de minutes (lissée, sans dépassement) */
+function minuteCurveSVG(minutes,bin,color){
+  if(!minutes.length) return emptyState('⏱️','Aucune minute enregistrée pour le moment');
+  const nb=Math.floor(Math.max(...minutes)/bin)+1;
+  const counts=new Array(nb).fill(0);
+  minutes.forEach(m=>{ counts[Math.floor(m/bin)]++; });
+  const col=color||'var(--primary)';
+  const W=600,H=220,padL=28,padR=14,padT=20,padB=30;
+  const innerW=W-padL-padR, innerH=H-padT-padB;
+  const maxC=Math.max(...counts);
+  const X=(i)=> nb===1? padL+innerW/2 : padL+i/(nb-1)*innerW;
+  const Y=(c)=> padT+innerH-(c/maxC)*innerH;
+  const pts=counts.map((c,i)=>({x:X(i),y:Y(c),c,i}));
+  let d=`M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
+  if(pts.length===2) d+=` L ${pts[1].x.toFixed(1)} ${pts[1].y.toFixed(1)}`;
+  else if(pts.length>2){
+    for(let i=1;i<pts.length-1;i++){
+      const mx=(pts[i].x+pts[i+1].x)/2, my=(pts[i].y+pts[i+1].y)/2;
+      d+=` Q ${pts[i].x.toFixed(1)} ${pts[i].y.toFixed(1)} ${mx.toFixed(1)} ${my.toFixed(1)}`;
+    }
+    d+=` L ${pts[pts.length-1].x.toFixed(1)} ${pts[pts.length-1].y.toFixed(1)}`;
+  }
+  const base=padT+innerH;
+  const area=`${d} L ${pts[pts.length-1].x.toFixed(1)} ${base} L ${pts[0].x.toFixed(1)} ${base} Z`;
+  const every=Math.max(1,Math.ceil(nb/12));
+  const labels=pts.filter(pt=>pt.i%every===0).map(pt=>`<text x="${pt.x.toFixed(1)}" y="${H-12}" text-anchor="middle" font-size="10" fill="currentColor" opacity=".7">${pt.i*bin}'</text>`).join('');
+  const dots=pts.map(pt=>`<circle cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="${pt.c>0?3.8:2.2}" fill="${col}" opacity="${pt.c>0?1:.45}"><title>${(pt.i*bin)+"'-"+((pt.i+1)*bin-1)+"'"} : ${pt.c} but${pt.c>1?'s':''}</title></circle>`).join('');
+  const peak=pts.filter(pt=>pt.c===maxC).map(pt=>`<text x="${pt.x.toFixed(1)}" y="${(pt.y-8).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700" fill="currentColor">${pt.c}</text>`).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;color:var(--text-dim);">
+    <line x1="${padL}" y1="${base}" x2="${W-padR}" y2="${base}" stroke="currentColor" opacity=".35"/>
+    <path d="${area}" fill="${col}" opacity=".16"/>
+    <path d="${d}" fill="none" stroke="${col}" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+    ${dots}${peak}${labels}
+  </svg>`;
 }
 function fiveScoreCurveSVG(fiveId){
   const five=getFive(fiveId);
@@ -1495,8 +1520,7 @@ function viewDashboard(){
   ${allFivesActionsMapHTML()}
 
   <div class="section-title">⏱️ Buts par minute (tous les Five)</div>
-  ${minuteBinPillsHTML()}
-  <div class="card" style="padding:12px;">${minuteHistogramSVG(playedGoalMinutes(),minuteBin)}</div>
+  <div class="card" style="padding:12px;">${minuteCurveSVG(playedGoalMinutes(),MINUTE_BIN)}</div>
   <div class="hint" style="margin:6px 0 0 4px;">${playedGoalMinutes().length} but${playedGoalMinutes().length>1?'s':''} sur ${STATE.goals.length} ont une minute enregistrée.</div>
 
   <div class="section-title">🕓 Five récents</div>
@@ -2281,7 +2305,6 @@ function viewPlayerProfile(playerId){
         ${statChip('⏱️','Minute moyenne', fmtNum(avg,1)+"'", 'blue')}
         ${statChip('⚡','Plus tôt', Math.min(...mins)+"'", 'green')}
         ${statChip('🕓','Plus tard', Math.max(...mins)+"'", 'gold')}
-        ${statChip('⚽','Buts avec minute', mins.length+'/'+myGoals.length, 'purple')}
       </div>
     </div>
     <div class="card" style="padding:12px;margin-top:14px;">${minuteHistogramSVG(mins,5,'#f97316')}</div>`;
