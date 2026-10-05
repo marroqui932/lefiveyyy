@@ -1110,6 +1110,74 @@ function computeRecords(){
     longestGAStreak: topBy(fs=>fs.bestGAStreak)
   };
 }
+/* ============================================================
+   INDICE DE PERFORMANCE (note /10)
+   Pas de moyennes : on compte les TOTAUX (être présent compte). Pour chaque critère, le
+   meilleur du groupe a 10 et les autres sont proportionnels (valeur / meilleure valeur x 10).
+   La note finale est la moyenne pondérée des critères. Un critère que personne n'a (meilleur = 0)
+   est ignoré et les poids sont renormalisés.
+   L'impact = part des buts de son équipe auxquels le joueur a contribué (buts + passes) sur les Five
+   où son équipe est connue. Pour éviter qu'un joueur à 1 match / 1 but ait 100 %, on ajoute
+   PERF_IMPACT_PRIOR_GOALS buts "neutres" au taux moyen du groupe (lissage).
+   ============================================================ */
+const PERF_CRITERIA=[
+  {key:'goals',   icon:'⚽', label:'Buts',                 weight:30},
+  {key:'assists', icon:'🎯', label:'Passes décisives',     weight:20},
+  {key:'wins',    icon:'✅', label:'Victoires',            weight:15},
+  {key:'clutch',  icon:'🔥', label:'Clutch',               weight:15},
+  {key:'impact',  icon:'💥', label:'Impact sur son équipe', weight:20}
+];
+const PERF_IMPACT_PRIOR_GOALS=5;
+function performanceRatings(){
+  const players=STATE.players.filter(p=>playerFiveIds(p.id).map(getFive).filter(Boolean).some(f=>!isFutureFive(f)));
+  const raw=players.map(p=>{
+    const fs=playerFullStats(p.id);
+    let contrib=0, teamGoals=0;
+    fs.perFive.forEach(pf=>{
+      const team=teamOfPlayerInFive(pf.five.id,p.id);
+      if(!team) return;
+      teamGoals+=fiveGoalsWithScore(pf.five.id).filter(g=>g.team===team).length;
+      contrib+=pf.goals+pf.assists;
+    });
+    return {player:p, fs, contrib, teamGoals};
+  });
+  const sumTeam=raw.reduce((a,r)=>a+r.teamGoals,0);
+  const groupShare=sumTeam? raw.reduce((a,r)=>a+r.contrib,0)/sumTeam : 0;
+  raw.forEach(r=>{
+    r.share = r.teamGoals? r.contrib/r.teamGoals : null;
+    r.values={
+      goals:r.fs.goals, assists:r.fs.assists, wins:r.fs.wins, clutch:r.fs.clutch,
+      impact:(r.contrib+PERF_IMPACT_PRIOR_GOALS*groupShare)/(r.teamGoals+PERF_IMPACT_PRIOR_GOALS)
+    };
+  });
+  const best={};
+  PERF_CRITERIA.forEach(c=>{ best[c.key]=raw.reduce((m,r)=>Math.max(m,r.values[c.key]),0); });
+  const out={};
+  raw.forEach(r=>{
+    let wSum=0, acc=0;
+    const parts=PERF_CRITERIA.map(c=>{
+      const active=best[c.key]>0;
+      const score=active? r.values[c.key]/best[c.key]*10 : null;
+      if(active){ wSum+=c.weight; acc+=c.weight*score; }
+      let display='';
+      if(c.key==='goals') display=r.fs.goals+(r.fs.goals>1?' buts':' but');
+      else if(c.key==='assists') display=r.fs.assists+(r.fs.assists>1?' passes':' passe');
+      else if(c.key==='wins') display=r.fs.wins+(r.fs.wins>1?' victoires':' victoire');
+      else if(c.key==='clutch') display=r.fs.clutch+(r.fs.clutch>1?' buts clutch':' but clutch');
+      else display=(r.share===null?'-':Math.round(r.share*100)+'% des buts de son équipe');
+      return {key:c.key,icon:c.icon,label:c.label,weight:c.weight,score,display};
+    });
+    out[r.player.id]={note: wSum? acc/wSum : 0, parts};
+  });
+  return out;
+}
+function rankByRating(){
+  const ratings=performanceRatings();
+  const rows=STATE.players.filter(p=>ratings[p.id]).map(p=>({player:p,value:ratings[p.id].note}));
+  rows.sort((a,b)=>b.value-a.value);
+  let rank=0, prev=null;
+  return rows.map((r,i)=>{ if(r.value!==prev){ rank=i+1; prev=r.value; } return Object.assign({},r,{rank}); });
+}
 function dashboardStats(){
   const sorted=fivesSorted();
   const playedSorted=sorted.filter(f=>!isFutureFive(f));
@@ -1990,6 +2058,30 @@ function viewPlayerProfile(playerId){
   </div>
   ${fs.withResult===0 ? `<div class="notice">ℹ️ Les équipes ne sont pas renseignées pour les Five joués par ce joueur : le résultat individuel (victoire/nul/défaite) ne peut pas être calculé.</div>` : ''}
 
+  ${(()=>{
+    const ratings=performanceRatings();
+    const r=ratings[playerId];
+    if(!r) return '';
+    const ranked=rankByRating();
+    const me=ranked.find(x=>x.player.id===playerId);
+    const bars=r.parts.map(pt=>`<div style="margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;margin-bottom:4px;">
+          <span style="font-weight:700;">${pt.icon} ${pt.label} <span style="color:var(--text-faint);font-weight:500;">(${pt.weight}%)</span></span>
+          <span style="color:var(--text-dim);">${pt.display} · <b style="color:var(--text);">${pt.score===null?'-':fmtNum(pt.score,1)}</b></span>
+        </div>
+        <div style="height:8px;border-radius:6px;background:var(--border);overflow:hidden;"><div style="height:100%;width:${pt.score===null?0:Math.max(0,Math.min(100,pt.score*10))}%;background:var(--primary);border-radius:6px;"></div></div>
+      </div>`).join('');
+    return `<div class="section-title">⭐ Indice de performance</div>
+    <div class="card" style="display:flex;gap:24px;flex-wrap:wrap;align-items:center;">
+      <div style="text-align:center;min-width:130px;">
+        <div style="font-size:48px;font-weight:900;line-height:1;color:var(--primary);">${fmtNum(r.note,1)}<span style="font-size:18px;color:var(--text-dim);font-weight:700;">/10</span></div>
+        <div class="page-sub" style="margin-top:6px;">${me? '#'+me.rank+' sur '+ranked.length : ''}</div>
+      </div>
+      <div style="flex:1;min-width:240px;">${bars}</div>
+    </div>
+    <div class="hint" style="margin:6px 0 0 4px;">Sur chaque critère, le meilleur du groupe a 10 et les autres sont proportionnels. Totaux et non moyennes : être présent compte. L'impact = part des buts de son équipe auxquels il a contribué (buts + passes).</div>`;
+  })()}
+
   <div class="section-title">📐 Moyennes</div>
   <div class="card" style="padding:0;">
     <div class="stat-strip">
@@ -2057,10 +2149,12 @@ function viewRankings(){
   const gaList=rankPlayers('ga',rankingFilter);
   const winsList=rankPlayers('wins',rankingFilter);
   const clutchList=rankPlayers('clutch',rankingFilter);
+  const ratingList=rankByRating();
   return `
   <div class="page-header"><div><h1>🏆 Classements</h1><div class="page-sub">Classements dynamiques calculés automatiquement</div></div></div>
   <div class="filter-pills">${filterOptions.map(o=>`<div class="pill ${o.v===rankingFilter?'active':''}" onclick="rankingFilter='${o.v}';render();">${o.l}</div>`).join('')}</div>
   <div class="grid grid-4">
+    <div class="card"><div class="section-title" style="margin-top:0;">⭐ Indice de performance</div>${rankListHTML(ratingList,1,'/10')}<div class="hint" style="margin-top:8px;">Note globale /10 (totaux, pas de moyenne) : le meilleur de chaque critère a 10. Identique quel que soit le filtre.</div></div>
     <div class="card"><div class="section-title" style="margin-top:0;">⚽ Meilleurs buteurs</div>${rankListHTML(scorers,rankingFilter.startsWith('avg')?2:0)}</div>
     <div class="card"><div class="section-title" style="margin-top:0;">🎯 Meilleurs passeurs</div>${rankListHTML(assisters,rankingFilter.startsWith('avg')?2:0)}</div>
     <div class="card"><div class="section-title" style="margin-top:0;">⭐ Plus décisifs (G+A)</div>${rankListHTML(gaList,rankingFilter.startsWith('avg')?2:0)}</div>
