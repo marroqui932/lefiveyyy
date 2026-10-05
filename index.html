@@ -866,6 +866,17 @@ function fiveGoalsWithScore(fiveId){
     return Object.assign({},g,{before,after,team});
   });
 }
+/* Clutch : but (hors CSC) qui permet à son équipe d'égaliser (elle était menée d'1 but)
+   ou de prendre l'avantage (score nul juste avant le but). wScore vient de fiveGoalsWithScore. */
+function clutchKind(wScore){
+  if(!wScore || !wScore.team) return null;
+  const mine = wScore.team==='A'? wScore.before.a : wScore.before.b;
+  const theirs = wScore.team==='A'? wScore.before.b : wScore.before.a;
+  const diff = mine-theirs;
+  if(diff===-1) return 'equalizer';
+  if(diff===0) return 'lead';
+  return null;
+}
 function fiveScore(fiveId){
   const list=fiveGoalsWithScore(fiveId);
   if(!list.length) return {a:0,b:0};
@@ -1907,11 +1918,17 @@ function viewPlayerProfile(playerId){
   });
   myAssistEvents.reverse();
 
+  // Buts clutch : égalisation ou prise d'avantage
+  const myClutch=myGoals.map(m=>Object.assign({},m,{kind:clutchKind(m.wScore)})).filter(m=>m.kind);
+  const clutchEqualizers=myClutch.filter(m=>m.kind==='equalizer').length;
+  const clutchLeads=myClutch.filter(m=>m.kind==='lead').length;
+
   function eventCard(m, mode){
     const video=videoForGoal(m.goal.id);
     const scorer=getPlayer(m.goal.scorerId);
     const assister=m.goal.assisterId? getPlayer(m.goal.assisterId):null;
-    const subLine = mode==='owngoal' ? '🥅 But contre son camp'
+    const subLine = mode==='clutch' ? (m.kind==='equalizer'? '⚖️ But de l\'égalisation' : '🚀 But de la prise d\'avantage')
+      : mode==='owngoal' ? '🥅 But contre son camp'
       : mode==='goals'
       ? (assister? '🎯 Assisté par '+esc(assister.name) : '🎯 Sans passe décisive')
       : ('⚽ But de '+esc(playerName(scorer)));
@@ -1973,6 +1990,18 @@ function viewPlayerProfile(playerId){
       ${statChip('🎟️','Participation', fs.participationRate===null?'-':fs.participationRate+'%', 'gold')}
     </div>
   </div>
+
+  <div class="section-title">🔥 Clutch (${myClutch.length})</div>
+  <div class="card" style="padding:0;">
+    <div class="stat-strip">
+      ${statChip('🔥','Buts clutch', myClutch.length, 'red')}
+      ${statChip('⚖️','Égalisations', clutchEqualizers, 'gold')}
+      ${statChip('🚀','Prises d\'avantage', clutchLeads, 'green')}
+      ${statChip('📊','% de ses buts', fs.goals? Math.round(myClutch.length/fs.goals*100)+'%' : '-', 'purple')}
+    </div>
+  </div>
+  <div class="hint" style="margin:6px 0 0 4px;">But qui permet à son équipe d'égaliser ou de passer devant (hors CSC).</div>
+  ${myClutch.length? myClutch.map(m=>eventCard(m,'clutch')).join('') : ''}
 
   <div class="section-title">🏅 Records personnels</div>
   <div class="card records-card">
