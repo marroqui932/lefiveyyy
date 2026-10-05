@@ -314,6 +314,13 @@ button{font-family:inherit;}
 .goal-row-head span{font-weight:800;font-size:12.5px;color:var(--text-dim);}
 .modal-actions{display:flex;gap:10px;margin-top:18px;justify-content:flex-end;}
 .hint{font-size:11.5px;color:var(--text-faint);margin-top:5px;}
+.rank-more summary{list-style:none;cursor:pointer;text-align:center;padding:9px;margin-top:6px;border:1px solid var(--border);border-radius:10px;font-size:13px;font-weight:700;color:var(--text-dim);user-select:none;}
+.rank-more summary::-webkit-details-marker{display:none;}
+.rank-more summary:hover{color:var(--text);border-color:var(--primary);}
+.rank-more .rm-close{display:none;}
+.rank-more[open] .rm-open{display:none;}
+.rank-more[open] .rm-close{display:inline;}
+.rank-more[open] summary{margin-bottom:6px;}
 
 /* admin */
 .admin-item{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--surface);margin-bottom:8px;}
@@ -2062,9 +2069,10 @@ function viewRankings(){
   </div>
   `;
 }
+const RANK_PREVIEW=6;
 function rankListHTML(rows,decimals,suffix){
   if(!rows.length) return emptyState('📉','Aucune donnée');
-  return rows.map(r=>{
+  const rowHTML=(r)=>{
     let medalClass='', medal=r.rank+'.', ringClass='';
     if(r.rank===1){medalClass='g';medal='🥇';ringClass='ring-gold';} else if(r.rank===2){medalClass='s';medal='🥈';ringClass='ring-silver';} else if(r.rank===3){medalClass='b';medal='🥉';ringClass='ring-bronze';}
     return `<div class="rank-row" style="cursor:pointer;" onclick="navigate('player/${r.player.id}')">
@@ -2073,7 +2081,14 @@ function rankListHTML(rows,decimals,suffix){
       <div style="font-weight:700;font-size:14px;">${esc(r.player.name)}</div>
       <div class="rank-val">${fmtNum(r.value,decimals)}${suffix||''}</div>
     </div>`;
-  }).join('');
+  };
+  const top=rows.slice(0,RANK_PREVIEW).map(rowHTML).join('');
+  if(rows.length<=RANK_PREVIEW) return top;
+  const rest=rows.slice(RANK_PREVIEW);
+  return top+`<details class="rank-more">
+    <summary><span class="rm-open">Voir plus (${rest.length})</span><span class="rm-close">Voir moins</span></summary>
+    ${rest.map(rowHTML).join('')}
+  </details>`;
 }
 
 // ---------- Duos ----------
