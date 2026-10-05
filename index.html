@@ -1117,8 +1117,7 @@ function computeRecords(){
    La note finale est la moyenne pondérée des critères. Un critère que personne n'a (meilleur = 0)
    est ignoré et les poids sont renormalisés.
    L'impact = part des buts de son équipe auxquels le joueur a contribué (buts + passes) sur les Five
-   où son équipe est connue. Pour éviter qu'un joueur à 1 match / 1 but ait 100 %, on ajoute
-   PERF_IMPACT_PRIOR_GOALS buts "neutres" au taux moyen du groupe (lissage).
+   où son équipe est connue (pas de lissage : sur un vrai Five il y a toujours plusieurs buts).
    ============================================================ */
 const PERF_CRITERIA=[
   {key:'goals',   icon:'⚽', label:'Buts',                 weight:30},
@@ -1127,7 +1126,6 @@ const PERF_CRITERIA=[
   {key:'clutch',  icon:'🔥', label:'Clutch',               weight:15},
   {key:'impact',  icon:'💥', label:'Impact sur son équipe', weight:20}
 ];
-const PERF_IMPACT_PRIOR_GOALS=5;
 function performanceRatings(){
   const players=STATE.players.filter(p=>playerFiveIds(p.id).map(getFive).filter(Boolean).some(f=>!isFutureFive(f)));
   const raw=players.map(p=>{
@@ -1141,13 +1139,11 @@ function performanceRatings(){
     });
     return {player:p, fs, contrib, teamGoals};
   });
-  const sumTeam=raw.reduce((a,r)=>a+r.teamGoals,0);
-  const groupShare=sumTeam? raw.reduce((a,r)=>a+r.contrib,0)/sumTeam : 0;
   raw.forEach(r=>{
     r.share = r.teamGoals? r.contrib/r.teamGoals : null;
     r.values={
       goals:r.fs.goals, assists:r.fs.assists, wins:r.fs.wins, clutch:r.fs.clutch,
-      impact:(r.contrib+PERF_IMPACT_PRIOR_GOALS*groupShare)/(r.teamGoals+PERF_IMPACT_PRIOR_GOALS)
+      impact:r.share===null? 0 : r.share
     };
   });
   const best={};
