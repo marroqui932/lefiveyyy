@@ -908,7 +908,7 @@ function playerFullStats(playerId){
   // Un Five "pas encore déroulé" n'est qu'une annonce : il ne doit jamais compter dans les stats
   // (pas un match joué, pas un résultat, pas de but/passe).
   const list=fiveIds.map(id=>getFive(id)).filter(Boolean).filter(f=>!isFutureFive(f)).sort((a,b)=>(a.date||'').localeCompare(b.date||'')||(a.createdAt||0)-(b.createdAt||0));
-  let goals=0, assists=0, wins=0, draws=0, losses=0, withResult=0, goalsWithAssist=0, goalsNoAssist=0, ownGoals=0;
+  let goals=0, assists=0, wins=0, draws=0, losses=0, withResult=0, goalsWithAssist=0, goalsNoAssist=0, ownGoals=0, clutch=0;
   const perFive=[];
   for(const five of list){
     const s=playerStatsForFive(playerId,five.id);
@@ -917,6 +917,7 @@ function playerFullStats(playerId){
     if(result){ withResult++; if(result==='win') wins++; else if(result==='draw') draws++; else losses++; }
     const goalsOfPlayer=goalsForFive(five.id).filter(g=>g.scorerId===playerId && !g.isOwnGoal);
     goalsOfPlayer.forEach(g=>{ if(g.assisterId) goalsWithAssist++; else goalsNoAssist++; });
+    clutch+=fiveGoalsWithScore(five.id).filter(g=>g.scorerId===playerId && !g.isOwnGoal && clutchKind(g)).length;
     perFive.push({five,goals:s.goals,assists:s.assists,ga:s.goals+s.assists,ownGoals:s.ownGoals,result});
   }
   const matches=list.length;
@@ -945,7 +946,7 @@ function playerFullStats(playerId){
     avgGoals:matches?goals/matches:0, avgAssists:matches?assists/matches:0, avgGA:matches?ga/matches:0,
     last5Goals:sum(last5,'goals'), last5Assists:sum(last5,'assists'), last5GA:sum(last5,'ga'),
     last10Goals:sum(last10,'goals'), last10Assists:sum(last10,'assists'), last10GA:sum(last10,'ga'),
-    goalsWithAssist, goalsNoAssist,
+    goalsWithAssist, goalsNoAssist, clutch, avgClutch:matches?clutch/matches:0,
     bestGoalStreak:bestG, bestGAStreak:bestGA,
     bestFiveGoals, bestFiveAssists, bestFiveGA,
     bestFiveGoalsFive, bestFiveAssistsFive, bestFiveGAFive,
@@ -959,6 +960,7 @@ function statFromFilter(playerId,statKey,filter){
     if(statKey==='goals') return fs.avgGoals;
     if(statKey==='assists') return fs.avgAssists;
     if(statKey==='wins') return fs.winPct||0;
+    if(statKey==='clutch') return fs.avgClutch;
     return fs.avgGA;
   }
   if(filter==='last5'){
@@ -2047,6 +2049,7 @@ function viewRankings(){
   const assisters=rankPlayers('assists',rankingFilter);
   const gaList=rankPlayers('ga',rankingFilter);
   const winsList=rankPlayers('wins',rankingFilter);
+  const clutchList=rankPlayers('clutch',rankingFilter);
   return `
   <div class="page-header"><div><h1>🏆 Classements</h1><div class="page-sub">Classements dynamiques calculés automatiquement</div></div></div>
   <div class="filter-pills">${filterOptions.map(o=>`<div class="pill ${o.v===rankingFilter?'active':''}" onclick="rankingFilter='${o.v}';render();">${o.l}</div>`).join('')}</div>
@@ -2055,6 +2058,7 @@ function viewRankings(){
     <div class="card"><div class="section-title" style="margin-top:0;">🎯 Meilleurs passeurs</div>${rankListHTML(assisters,rankingFilter.startsWith('avg')?2:0)}</div>
     <div class="card"><div class="section-title" style="margin-top:0;">⭐ Plus décisifs (G+A)</div>${rankListHTML(gaList,rankingFilter.startsWith('avg')?2:0)}</div>
     <div class="card"><div class="section-title" style="margin-top:0;">✅ Plus de victoires</div>${rankListHTML(winsList,0,rankingFilter.startsWith('avg')?'%':'')}</div>
+    <div class="card"><div class="section-title" style="margin-top:0;">🔥 Plus clutch</div>${rankListHTML(clutchList,rankingFilter.startsWith('avg')?2:0)}<div class="hint" style="margin-top:8px;">Buts qui égalisent ou font passer devant</div></div>
   </div>
   `;
 }
