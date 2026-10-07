@@ -1158,7 +1158,8 @@ function timeToMin(t){ const m=/^(\d{1,2}):(\d{2})/.exec(t||''); return m? (+m[1
 function minuteHistogramSVG(minutes,bin,color){
   if(!minutes.length) return emptyState('⏱️','Aucune minute enregistrée pour le moment');
   const maxMin=Math.max(...minutes);
-  const nb=Math.floor(maxMin/bin)+1;
+  // L'axe couvre toujours un match complet (0-90'), même sans but en fin de match ; il s'étend si un but est marqué plus tard
+  const nb=Math.max(Math.floor(maxMin/bin)+1, Math.ceil(90/bin));
   const counts=new Array(nb).fill(0);
   minutes.forEach(m=>{ counts[Math.floor(m/bin)]++; });
   const W=600,H=200,padL=26,padR=8,padT=18,padB=30;
