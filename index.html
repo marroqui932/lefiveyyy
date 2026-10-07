@@ -839,8 +839,12 @@ function fiveGoalsWithScore(fiveId){
 }
 /* Clutch : but (hors CSC) qui permet à son équipe d'égaliser (elle était menée d'1 but)
    ou de prendre l'avantage (score nul juste avant le but). wScore vient de fiveGoalsWithScore. */
+const CLUTCH_MIN_MINUTE=70; // avant cette minute, un but n'est pas "clutch" (ex: ouvrir le score)
 function clutchKind(wScore){
   if(!wScore || !wScore.team) return null;
+  // Minute connue : il faut avoir atteint la minute seuil. Minute inconnue (anciens buts) : on exclut au moins le tout 1er but du match (0-0).
+  if(wScore.minute!=null){ if(wScore.minute<CLUTCH_MIN_MINUTE) return null; }
+  else if(wScore.before.a===0 && wScore.before.b===0) return null;
   const mine = wScore.team==='A'? wScore.before.a : wScore.before.b;
   const theirs = wScore.team==='A'? wScore.before.b : wScore.before.a;
   const diff = mine-theirs;
@@ -960,11 +964,14 @@ function availableSeasons(){
   STATE.fives.forEach(f=>{ if(f.date) years.add(f.date.slice(0,4)); });
   return [...years].sort().reverse();
 }
+const AVG_MIN_PARTICIPATION=0.5;
 function rankPlayers(statKey,filter){
   // Ne classer que les joueurs ayant participé à au moins un Five déjà joué
   // (un Five à venir où les équipes sont déjà faites ne doit pas suffire à apparaître dans un classement).
   const playedPlayers=STATE.players.filter(p=>playerFiveIds(p.id).map(getFive).filter(Boolean).some(f=>!isFutureFive(f)));
-  const rows=playedPlayers.map(p=>({player:p, value:statFromFilter(p.id,statKey,filter)||0}));
+  // Moyennes : seulement les joueurs ayant joué au moins 50% des Fives (sinon 1 match = moyenne gonflée)
+  const eligible=(filter==='avg')? playedPlayers.filter(p=>{ const r=playerFullStats(p.id).participationRate; return r!==null && r>=AVG_MIN_PARTICIPATION*100; }) : playedPlayers;
+  const rows=eligible.map(p=>({player:p, value:statFromFilter(p.id,statKey,filter)||0}));
   rows.sort((a,b)=>b.value-a.value);
   let rank=0, prev=null;
   return rows.map((r,i)=>{ if(r.value!==prev){ rank=i+1; prev=r.value; } return Object.assign({},r,{rank}); });
@@ -1102,7 +1109,7 @@ const PLAYER_CRITERIA=[
   {key:'generous', icon:'🤝', label:'Généreux',               hint:'partenaires différents servis'},
   {key:'wins',     icon:'✅', label:'Victoires'},
   {key:'impact',   icon:'💥', label:'Impact sur son équipe',   hint:'part des buts de son équipe (buts + passes)'},
-  {key:'clutch',   icon:'🔥', label:'Clutch',                  hint:'buts qui égalisent ou font passer devant'}
+  {key:'clutch',   icon:'🔥', label:'Clutch',                  hint:'buts qui égalisent ou font passer devant (à partir de la 70e minute)'}
 ];
 function playerCriteriaRankings(){
   const players=STATE.players.filter(p=>playerFiveIds(p.id).map(getFive).filter(Boolean).some(f=>!isFutureFive(f)));
@@ -2466,7 +2473,7 @@ function viewRankings(){
   const gaList=rankPlayers('ga',rankingFilter);
   const winsList=rankPlayers('wins',rankingFilter);
   return `
-  <div class="page-header"><div><h1>🏆 Classements</h1><div class="page-sub">Classements dynamiques calculés automatiquement</div></div></div>
+  <div class="page-header"><div><h1>🏆 Classements</h1><div class="page-sub">Classements dynamiques calculés automatiquement${rankingFilter==='avg'?' · moyennes : joueurs avec au moins 50% des Fives joués':''}</div></div></div>
   <div class="filter-pills">${filterOptions.map(o=>`<div class="pill ${o.v===rankingFilter?'active':''}" onclick="rankingFilter='${o.v}';render();">${o.l}</div>`).join('')}</div>
   <div class="grid grid-4">
     <div class="card"><div class="section-title" style="margin-top:0;">⚽ Meilleurs buteurs</div>${rankListHTML(scorers,rankingFilter.startsWith('avg')?2:0)}</div>
