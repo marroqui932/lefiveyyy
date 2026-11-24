@@ -12,24 +12,10 @@
    ============================================================ */
 const ELO_START=1000, ELO_K=32, TEAMGEN_MAX_PLAYERS=16;
 function eloGoalFactor(gd){ gd=Math.abs(gd); return gd<=1? 1 : gd===2? 1.5 : (11+gd)/8; }
+/* Le calcul (avec historique match par match) est dans ratings.js : eloHistory(). */
 function computeEloRatings(){
-  const rating={}, games={};
-  STATE.players.forEach(p=>{ rating[p.id]=ELO_START; games[p.id]=0; });
-  fivesSorted().filter(f=>!isFutureFive(f)).forEach(five=>{
-    if(!goalsForFive(five.id).length) return; /* pas de résultat connu */
-    const parts=participationsForFive(five.id);
-    const A=parts.filter(p=>p.teamId==='A').map(p=>p.playerId).filter(id=>id in rating);
-    const B=parts.filter(p=>p.teamId==='B').map(p=>p.playerId).filter(id=>id in rating);
-    if(!A.length||!B.length) return;
-    const sc=fiveScore(five.id);
-    const mean=(ids)=>ids.reduce((a,id)=>a+rating[id],0)/ids.length;
-    const eA=1/(1+Math.pow(10,(mean(B)-mean(A))/400));
-    const sA= sc.a>sc.b? 1 : sc.a<sc.b? 0 : 0.5;
-    const delta=ELO_K*eloGoalFactor(sc.a-sc.b)*(sA-eA);
-    A.forEach(id=>{ rating[id]+=delta; games[id]++; });
-    B.forEach(id=>{ rating[id]-=delta; games[id]++; });
-  });
-  return {rating,games};
+  const h=eloHistory();
+  return {rating:h.rating, games:h.games};
 }
 function pairKey(a,b){ return a<b? a+'|'+b : b+'|'+a; }
 /* Historique des associations : pondéré (Five récent = poids 1, puis x0.9 par Five en arrière) */

@@ -1,20 +1,28 @@
 'use strict';
 /* ============================================================
-/* ============================================================
    MOTEUR DE STATISTIQUES - fonctions pures sur STATE
    (aucune statistique n'est stockée : tout est recalculé depuis
    les entités brutes Player / Five / Participation / Goal)
    ============================================================ */
+
+/* Cache des calculs : STATE ne change que dans loadAll(), qui vide ce cache.
+   Les valeurs mises en cache sont partagées : les appelants ne doivent pas les modifier. */
+const _statsCache=new Map();
+function cached(key,fn){
+  if(!_statsCache.has(key)) _statsCache.set(key,fn());
+  return _statsCache.get(key);
+}
+function clearStatsCache(){ _statsCache.clear(); }
+
 function fivesSorted(){
-  return [...STATE.fives].sort((a,b)=> (a.date||'').localeCompare(b.date||'') || (a.createdAt||0)-(b.createdAt||0));
+  return cached('fivesSorted',()=>[...STATE.fives].sort((a,b)=> (a.date||'').localeCompare(b.date||'') || (a.createdAt||0)-(b.createdAt||0))).slice();
 }
 function fiveNumber(fiveId){
-  const list=fivesSorted();
-  const idx=list.findIndex(f=>f.id===fiveId);
+  const idx=fivesSorted().findIndex(f=>f.id===fiveId);
   return idx===-1? null : idx+1;
 }
 function goalsForFive(fiveId){
-  return STATE.goals.filter(g=>g.fiveId===fiveId).sort((a,b)=>a.order-b.order);
+  return cached('goals:'+fiveId,()=>STATE.goals.filter(g=>g.fiveId===fiveId).sort((a,b)=>a.order-b.order)).slice();
 }
 function participationsForFive(fiveId){
   return STATE.participations.filter(p=>p.fiveId===fiveId);
@@ -34,6 +42,9 @@ function playerAttackEndInFive(five,playerId){
   return team==='A'? aSide : bSide;
 }
 function fiveGoalsWithScore(fiveId){
+  return cached('gws:'+fiveId,()=>_fiveGoalsWithScore(fiveId)).slice();
+}
+function _fiveGoalsWithScore(fiveId){
   let a=0,b=0;
   const goals=goalsForFive(fiveId);
   return goals.map(g=>{
@@ -88,6 +99,9 @@ function playerResultInFive(playerId,fiveId){
   return 'loss';
 }
 function playerFullStats(playerId){
+  return cached('pfs:'+playerId,()=>_playerFullStats(playerId));
+}
+function _playerFullStats(playerId){
   const fiveIds=[...new Set(playerFiveIds(playerId))];
   // Un Five "pas encore déroulé" n'est qu'une annonce : il ne doit jamais compter dans les stats
   // (pas un match joué, pas un résultat, pas de but/passe).
@@ -302,8 +316,29 @@ function computeRecords(){
     mostTotalAssists: topBy(fs=>fs.assists),
     mostTotalGA: topBy(fs=>fs.ga),
     longestGoalStreak: topBy(fs=>fs.bestGoalStreak),
-    longestGAStreak: topBy(fs=>fs.bestGAStreak)
+    longestGAStreak: topBy(fs=>fs.bestGAStreak),
+    // Records ajoutés avec ratings.js (note, MVP, séries de résultats, Elo)
+    bestRating: (()=>{
+      let best=-Infinity; const holders=[], seen=new Set();
+      fivesSorted().forEach(f=>matchRatings(f.id).forEach(r=>{ if(r.rating>best) best=r.rating; }));
+      if(best===-Infinity) return null;
+      fivesSorted().forEach(f=>matchRatings(f.id).forEach(r=>{
+        const pl=getPlayer(r.playerId);
+        if(r.rating===best && pl && !seen.has(r.playerId)){ seen.add(r.playerId); holders.push({player:pl, five:f}); }
+      }));
+      return {value:best.toFixed(1), holders};
+    })(),
+    mostMvp: topByPlayer(p=>playerForm(p.id).mvpCount),
+    longestWinStreak: topByPlayer(p=>playerForm(p.id).winStreak.best),
+    longestUnbeaten: topByPlayer(p=>playerForm(p.id).unbeatenStreak.best),
+    peakElo: topByPlayer(p=>eloHistory().games[p.id]? Math.round(eloHistory().peak[p.id]) : 0, ELO_START)
   };
+  // Valeur max par joueur (égalités incluses), seulement si elle dépasse `floor`.
+  function topByPlayer(fn,floor){
+    const rows=played.map(p=>({player:p, v:fn(p)}));
+    const max=Math.max(0,...rows.map(r=>r.v));
+    return max>(floor||0)? {value:max, holders:rows.filter(r=>r.v===max).map(r=>({player:r.player}))} : null;
+  }
 }
 /* ============================================================
    CLASSEMENT DU JOUEUR PAR CRITÈRE (affiché sur son profil)

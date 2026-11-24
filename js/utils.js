@@ -6,6 +6,7 @@
      data.js    Supabase : repositories, auth admin, STATE en mémoire
      stats.js   moteur de stats (fonctions pures sur STATE)
      teams.js   générateur d'équipes équilibrées
+     ratings.js notes /10, homme du match, forme, séries, Elo, associations
      router.js  navigation par hash + rendu de la page courante
      pitch.js   mini-terrain SVG (buts, passes, zoom)
      views.js   pages (accueil, Five, joueurs, classements, …)
