@@ -6,6 +6,7 @@
      data.js    Supabase : repositories, auth admin, STATE en mémoire
      stats.js   moteur de stats (fonctions pures sur STATE)
      teams.js   générateur d'équipes équilibrées
+     ratings.js notes /10, homme du match, forme, séries, Elo, associations
      router.js  navigation par hash + rendu de la page courante
      pitch.js   mini-terrain SVG (buts, passes, zoom)
      views.js   pages (accueil, Five, joueurs, classements, …)
@@ -89,7 +90,7 @@ function initials(name){
   return name.trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();
 }
 function playerName(p){ return p? p.name : 'Joueur supprimé'; }
-function fmtNum(n,d){ if(n===null||n===undefined||isNaN(n)) return '-'; return d? n.toFixed(d):Math.round(n); }
+function fmtNum(n,d){ if(n===null||n===undefined||isNaN(n)) return "-"; return d? n.toFixed(d) : String(Math.round(n)); }
 function fmtPct(n){ return (n===null||n===undefined)? '-' : n+'%'; }
 function debounce(fn,ms){ let t; return (...a)=>{clearTimeout(t); t=setTimeout(()=>fn(...a),ms);}; }
 function toast(msg,type){

@@ -18,7 +18,7 @@ function openPlayerForm(playerId){
   const p=playerId? getPlayer(playerId) : null;
   _playerFormCountry = p? (p.country||null) : null;
   openModal(`
-    <h2>${p?'✏️ Modifier le joueur':'➕ Ajouter un joueur'}<button class="modal-close" onclick="closeModal()">✕</button></h2>
+    <h2>${p?"Modifier le joueur":"Ajouter un joueur"}<button class="modal-close" onclick="closeModal()" aria-label="Fermer">${ic("x")}</button></h2>
     <form id="playerForm" onsubmit="return submitPlayerForm(event,'${playerId||''}')">
       <div class="form-row"><label>Nom du joueur *</label><input class="input" name="name" required value="${p?esc(p.name):''}"></div>
       <div class="form-row"><label>Photo</label><input class="input" type="file" accept="image/*" name="photoFile">
@@ -98,7 +98,7 @@ function openFiveForm(fiveId,preset){
   const allPlayers=[...STATE.players].sort((a,b)=>a.name.localeCompare(b.name));
 
   openModal(`
-    <h2>${f?'✏️ Modifier le Five':'➕ Ajouter un Five'}<button class="modal-close" onclick="closeModal()">✕</button></h2>
+    <h2>${f?"Modifier le five":"Ajouter un five"}<button class="modal-close" onclick="closeModal()" aria-label="Fermer">${ic("x")}</button></h2>
     <form id="fiveForm" onsubmit="return submitFiveForm(event,'${fiveId||''}')">
       <div class="form-2col">
         <div class="form-row"><label>Date *</label><input class="input" type="date" name="date" required value="${f?f.date:''}"></div>
@@ -115,7 +115,7 @@ function openFiveForm(fiveId,preset){
       <div class="form-row"><label>Équipe B</label>
         <div class="check-grid" id="teamBCheck">${allPlayers.map(p=>`<label><input type="checkbox" value="${p.id}" ${teamB.includes(p.id)?'checked':''} onchange="syncGoalSelects()">${esc(p.name)}</label>`).join('') || ''}</div>
       </div>
-      ${noTeam.length? `<div class="hint">⚠️ ${noTeam.length} joueur(s) participant(s) sans équipe assignée (ne coche aucune case pour eux si l'équipe est inconnue).</div>`:''}
+      ${noTeam.length? `<div class="hint">${noTeam.length} joueur(s) participant(s) sans équipe assignée (ne coche aucune case pour eux si l'équipe est inconnue).</div>`:''}
       <div class="hint">Un joueur non sélectionné dans une équipe ne participera pas au calcul du score ni au décompte victoire/défaite pour ce Five, sauf s'il est simplement listé comme participant sans équipe (les statistiques individuelles de buts/passes restent, elles, toujours calculées).</div>
 
       <div class="form-row"><label>Sens du jeu</label>
@@ -123,7 +123,7 @@ function openFiveForm(fiveId,preset){
         <div class="hint">Choisis quelle équipe marque en haut / en bas : ça détermine dans quelle cage chaque but du formulaire s'affiche, et l'affichage de la carte des actions du match.</div>
       </div>
 
-      <div class="section-title" style="margin-top:24px;">⚽ Buts du match</div>
+      ${sectionTitle("ball","Buts du match")}
       <div id="goalsContainer">${renderGoalRowsHTML()}</div>
       <button type="button" class="btn btn-ghost btn-sm" onclick="addGoalRow()">+ Ajouter un but</button>
 
@@ -142,8 +142,8 @@ function currentFiveFormPlayers(){
 function attackingEndToggleHTML(){
   const side=_fiveFormAttackingEndA||'top';
   return `<div style="display:flex;gap:8px;flex-wrap:wrap;">
-    <button type="button" class="btn btn-sm ${side==='top'?'btn-primary':'btn-ghost'}" onclick="setAttackingEndA('top')">🔵 Équipe A marque en haut</button>
-    <button type="button" class="btn btn-sm ${side==='bottom'?'btn-primary':'btn-ghost'}" onclick="setAttackingEndA('bottom')">🔵 Équipe A marque en bas</button>
+    <button type="button" class="btn btn-sm ${side==='top'?'btn-primary':'btn-ghost'}" onclick="setAttackingEndA('top')">Équipe A marque en haut</button>
+    <button type="button" class="btn btn-sm ${side==='bottom'?'btn-primary':'btn-ghost'}" onclick="setAttackingEndA('bottom')">Équipe A marque en bas</button>
   </div>`;
 }
 function setAttackingEndA(side){
@@ -188,30 +188,30 @@ function renderGoalRowsHTML(){
   };
   return _fiveFormGoalRows.map((row,idx)=>`
     <div class="goal-row" data-row="${row.rowId}">
-      <div class="goal-row-head"><span>BUT #${idx+1}</span><button type="button" class="btn btn-sm btn-danger" onclick="removeGoalRow('${row.rowId}')">🗑️</button></div>
-      <div class="form-row"><label>⏱️ Minute du but${row.goalId?'':' *'}</label>
+      <div class="goal-row-head"><span>BUT #${idx+1}</span><button type="button" class="btn btn-sm btn-danger" onclick="removeGoalRow('${row.rowId}')" aria-label="Supprimer ce but">${ic("trash",14)}</button></div>
+      <div class="form-row"><label>Minute du but${row.goalId?'':' *'}</label>
         <input class="input" type="number" min="0" max="120" step="1" inputmode="numeric" placeholder="ex : 12" value="${row.minute===null||row.minute===undefined?'':row.minute}" style="max-width:140px;" oninput="updateGoalMinute('${row.rowId}',this.value)">
       </div>
       <div class="form-2col">
         <div class="form-row"><label>Buteur</label><select class="input" data-field="scorer" onchange="updateGoalRow('${row.rowId}','scorerId',this.value)"><option value="">- Choisir -</option>${options(row.scorerId)}</select></div>
-        <div class="form-row"><label>Passeur</label><select class="input" data-field="assister" ${row.isOwnGoal?'disabled':''} onchange="updateGoalRowAssister('${row.rowId}',this.value)"><option value="">🎯 Sans passe décisive</option>${options(row.isOwnGoal?'':row.assisterId)}</select></div>
+        <div class="form-row"><label>Passeur</label><select class="input" data-field="assister" ${row.isOwnGoal?'disabled':''} onchange="updateGoalRowAssister('${row.rowId}',this.value)"><option value="">Sans passe décisive</option>${options(row.isOwnGoal?'':row.assisterId)}</select></div>
       </div>
       <div class="form-row">
         <label style="display:flex;align-items:center;gap:8px;font-weight:500;text-transform:none;letter-spacing:0;">
           <input type="checkbox" ${row.isOwnGoal?'checked':''} onchange="toggleOwnGoal('${row.rowId}',this.checked)">
-          🥅 But contre son camp (compte pour l'équipe adverse, pas de passeur)
+          But contre son camp (compte pour l'équipe adverse, pas de passeur)
         </label>
       </div>
       <div class="form-row"><label>Vidéo du but (optionnel)</label>
         <input class="input" type="file" accept="video/*" onchange="onGoalVideoChange('${row.rowId}',this.files[0])">
         <div id="videoInfo_${row.rowId}">
-          ${row.existingVideo? `<div class="hint">🎬 Vidéo actuelle : ${esc(row.existingVideo.fileName)} - <a href="#" onclick="event.preventDefault();playVideo('${row.existingVideo.id}')">voir</a> · <a href="#" onclick="event.preventDefault();markRemoveVideo('${row.rowId}')">supprimer</a></div>` : ''}
-          ${row.videoFile? `<div class="hint">📁 ${esc(row.videoFile.name)} - ${fmtFileSize(row.videoFile.size)}
-            ${row.videoFile.size>15*1024*1024 ? ` · <button type="button" class="btn btn-sm btn-ghost" style="padding:2px 8px;" onclick="compressGoalVideo('${row.rowId}')">🗜️ Compresser</button>` : ''}
+          ${row.existingVideo? `<div class="hint">Vidéo actuelle : ${esc(row.existingVideo.fileName)} - <a href="#" onclick="event.preventDefault();playVideo('${row.existingVideo.id}')">voir</a> · <a href="#" onclick="event.preventDefault();markRemoveVideo('${row.rowId}')">supprimer</a></div>` : ''}
+          ${row.videoFile? `<div class="hint">${esc(row.videoFile.name)} - ${fmtFileSize(row.videoFile.size)}
+            ${row.videoFile.size>15*1024*1024 ? ` · <button type="button" class="btn btn-sm btn-ghost" style="padding:2px 8px;" onclick="compressGoalVideo('${row.rowId}')">${ic("compress",13)} Compresser</button>` : ''}
           </div>` : ''}
         </div>
       </div>
-      <div class="form-row"><label>📍 Localisation du but (optionnel)</label>
+      <div class="form-row"><label>Localisation du but (optionnel)</label>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
           ${goalActionPickerBlock(row,goalInsetSideForRow(row))}
         </div>
@@ -466,10 +466,10 @@ function playVideo(goalId){
   if(!meta || !meta.url){ toast('Vidéo introuvable','error'); return; }
   openModal(`
     <div class="video-modal">
-      <h2>▶️ ${esc(meta.fileName)}<button class="modal-close" onclick="closeModal()">✕</button></h2>
+      <h2>${esc(meta.fileName)}<button class="modal-close" onclick="closeModal()" aria-label="Fermer">${ic("x")}</button></h2>
       <video src="${meta.url}" controls autoplay playsinline></video>
       <div class="modal-actions">
-        <a class="btn btn-ghost" href="${meta.url}" target="_blank" rel="noopener">⬇️ Ouvrir / télécharger</a>
+        <a class="btn btn-ghost" href="${meta.url}" target="_blank" rel="noopener">${ic("download")}Ouvrir / télécharger</a>
         <button class="btn btn-primary" onclick="closeModal()">Fermer</button>
       </div>
     </div>

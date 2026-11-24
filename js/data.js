@@ -113,6 +113,7 @@ async function loadAll(){
   STATE.fives=fives;
   STATE.participations=participations;
   STATE.goals=goals;
+  clearStatsCache();
 }
 
 function getPlayer(id){ return STATE.players.find(p=>p.id===id) || null; }
