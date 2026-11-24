@@ -1,16 +1,19 @@
 'use strict';
 /* ============================================================
-   ROUTER
+   ROUTER + NAVIGATION
+   Ordinateur : barre latérale. Mobile : barre d'onglets en bas (main: true)
+   + feuille "Plus" pour les autres pages.
    ============================================================ */
 const ROUTES=[
-  {key:'five', label:'Five', icon:'🏟️'},
-  {key:'players', label:'Joueurs', icon:'👥'},
-  {key:'rankings', label:'Classements', icon:'🏆'},
-  {key:'duos', label:'Duos', icon:'🤝'},
-  {key:'compare', label:'Comparer', icon:'⚖️'},
-  {key:'teams', label:'Équipes', icon:'🎲'},
-  {key:'records', label:'Records', icon:'🏅'},
-  {key:'admin', label:'Données', icon:'🗃️'}
+  {key:'dashboard', label:'Accueil',     icon:'home',     main:true},
+  {key:'five',      label:'Matchs',      icon:'pitch',    main:true, also:['five']},
+  {key:'players',   label:'Joueurs',     icon:'users',    main:true, also:['player']},
+  {key:'rankings',  label:'Classements', icon:'trophy',   main:true},
+  {key:'records',   label:'Records',     icon:'medal'},
+  {key:'duos',      label:'Duos',        icon:'link',     also:['duo']},
+  {key:'compare',   label:'Comparer',    icon:'scale'},
+  {key:'teams',     label:'Équipes',     icon:'shuffle'},
+  {key:'admin',     label:'Données',     icon:'database'}
 ];
 
 function parseHash(){
@@ -19,28 +22,38 @@ function parseHash(){
   return {page: parts[0]||'dashboard', id: parts[1]||null, extra: parts[2]||null};
 }
 function navigate(path){ location.hash='#/'+path; }
+function currentRoute(){
+  const r=parseHash();
+  return ROUTES.find(rt=>rt.key===r.page || (rt.also||[]).includes(r.page)) || ROUTES[0];
+}
 
 function renderNav(){
-  const r=parseHash();
-  const navDesktop=document.getElementById('navDesktop');
-  const navMobile=document.getElementById('navMobile');
-  navDesktop.innerHTML=ROUTES.map(rt=>`<a href="#/${rt.key}" class="${r.page===rt.key?'active':''}">${rt.icon} ${rt.label}</a>`).join('');
-  navMobile.innerHTML=ROUTES.map(rt=>`<a href="#/${rt.key}" class="${r.page===rt.key?'active':''}">${rt.icon} ${rt.label}</a>`).join('') +
-    `<div style="border-top:1px solid var(--border-soft);margin-top:8px;padding-top:8px;">
-      ${isAdmin()? `<a href="#" onclick="event.preventDefault();handleLogoutClick();">🔓 Déconnexion</a>` : `<a href="#" onclick="event.preventDefault();openLoginModal();">🔑 Connexion admin</a>`}
-    </div>`;
-  const cur=ROUTES.find(rt=>rt.page===r.page) || ROUTES.find(rt=>rt.key===r.page);
-  document.getElementById('mobilePageTitle').textContent = cur? cur.label : '';
-  const authControl=document.getElementById('authControl');
-  if(authControl){
-    authControl.innerHTML=isAdmin()
-      ? `<button class="btn btn-ghost btn-sm" onclick="handleLogoutClick()">🔓 Déconnexion</button>`
-      : `<button class="btn btn-ghost btn-sm" onclick="openLoginModal()">🔑 Connexion</button>`;
-  }
+  const cur=currentRoute();
+  const link=(rt)=>`<a href="#/${rt.key}" class="${rt===cur?'active':''}" ${rt===cur?'aria-current="page"':''}>${ic(rt.icon)}<span>${rt.label}</span></a>`;
+  document.getElementById('navDesktop').innerHTML=ROUTES.map(link).join('');
+  const moreActive=!cur.main;
+  document.getElementById('tabBar').innerHTML=ROUTES.filter(rt=>rt.main).map(link).join('')
+    + `<button type="button" class="${moreActive?'active':''}" onclick="toggleMoreSheet(true)">${ic('more')}<span>Plus</span></button>`;
+  document.getElementById('moreSheet').innerHTML=`<div class="sheet-handle"></div>
+    ${ROUTES.filter(rt=>!rt.main).map(link).join('')}
+    <div class="sheet-sep"></div>
+    ${isAdmin()? `<a href="#" onclick="event.preventDefault();handleLogoutClick();">${ic('logout')}<span>Déconnexion</span></a>`
+               : `<a href="#" onclick="event.preventDefault();openLoginModal();">${ic('login')}<span>Connexion admin</span></a>`}`;
+  document.getElementById('mobilePageTitle').textContent = cur.key==='dashboard'? 'LeFiveyyy' : cur.label;
+  const authBtn=isAdmin()
+    ? `<button class="btn btn-ghost btn-sm" onclick="handleLogoutClick()">${ic('logout')}<span>Déconnexion</span></button>`
+    : `<button class="btn btn-ghost btn-sm" onclick="openLoginModal()">${ic('login')}<span>Connexion</span></button>`;
+  document.getElementById('authControl').innerHTML=(isAdmin()? `<div class="admin-flag">${ic('shield')} Mode admin</div>` : '')+authBtn;
+  document.getElementById('authControlMobile').innerHTML=isAdmin()? `<span class="admin-flag">${ic('shield')} Admin</span>` : '';
+}
+function toggleMoreSheet(open){
+  document.getElementById('moreSheet').classList.toggle('show',open);
+  document.getElementById('sheetBackdrop').classList.toggle('show',open);
 }
 function openLoginModal(){
+  toggleMoreSheet(false);
   openModal(`
-    <h2>🔑 Connexion admin<button class="modal-close" onclick="closeModal()">✕</button></h2>
+    <h2>Connexion admin<button class="modal-close" onclick="closeModal()" aria-label="Fermer">${ic('x')}</button></h2>
     <form id="loginForm" onsubmit="return submitLoginForm(event)">
       <div class="form-row"><label>Email</label><input class="input" type="email" name="email" required autocomplete="username"></div>
       <div class="form-row"><label>Mot de passe</label><input class="input" type="password" name="password" required autocomplete="current-password"></div>
@@ -75,9 +88,14 @@ async function handleLogoutClick(){
   navigate('dashboard');
 }
 
+let _lastRenderedHash=null;
 async function render(){
+  toggleMoreSheet(false);
   renderNav();
   const r=parseHash();
+  // Un nouveau rendu de la même page (filtre, onglet, après une sauvegarde) garde la position de défilement.
+  const pageChanged= location.hash!==_lastRenderedHash;
+  _lastRenderedHash=location.hash;
   const view=document.getElementById('view');
   try{
     if(r.page==='dashboard') view.innerHTML=viewDashboard();
@@ -95,13 +113,25 @@ async function render(){
     else view.innerHTML=viewDashboard();
   }catch(err){
     console.error(err);
-    view.innerHTML=`<div class="empty-state"><div class="e-icon">⚠️</div><p>Une erreur est survenue.<br><small>${esc(err.message)}</small></p></div>`;
+    view.innerHTML=emptyState('alert','Une erreur est survenue',esc(err.message));
   }
-  window.scrollTo(0,0);
+  if(pageChanged){ window.scrollTo(0,0); view.classList.remove('enter'); void view.offsetWidth; view.classList.add('enter'); }
   afterRenderHooks();
 }
 function afterRenderHooks(){
+  // Recherche de joueurs : on filtre les cartes affichées sans re-rendre la page (le champ garde le focus).
   const search=document.getElementById('playerSearchInput');
-  if(search){ search.addEventListener('input', debounce(()=>render(),180)); }
+  if(search){
+    search.addEventListener('input',()=>{
+      const q=search.value.toLowerCase().trim();
+      let shown=0;
+      document.querySelectorAll('[data-player-name]').forEach(el=>{
+        const ok=!q || el.dataset.playerName.includes(q);
+        el.classList.toggle('hidden',!ok); if(ok) shown++;
+      });
+      const empty=document.getElementById('playerSearchEmpty');
+      if(empty) empty.classList.toggle('hidden',shown>0);
+    });
+  }
 }
 

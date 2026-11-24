@@ -46,29 +46,28 @@ window.launchCompare=launchCompare;
 window.openLoginModal=openLoginModal;
 window.submitLoginForm=submitLoginForm;
 window.handleLogoutClick=handleLogoutClick;
+window.toggleMoreSheet=toggleMoreSheet;
+window.optimizeAllPhotos=optimizeAllPhotos;
 
 async function init(){
-  document.getElementById('view').innerHTML=`<div class="empty-state"><div class="e-icon">⚽</div><div style="font-weight:700;">Chargement de LeFiveyyy...</div></div>`;
+  const view=document.getElementById('view');
+  view.innerHTML=`<div class="loading"><div class="spinner"></div><div>Chargement des stats…</div></div>`;
   try{
     await initAuth();
     await loadAll();
   }catch(err){
     console.error(err);
-    document.getElementById('view').innerHTML=`<div class="empty-state"><div class="e-icon">⚠️</div><div style="font-weight:700;">Connexion à la base impossible</div><div class="page-sub" style="margin-top:6px;">${esc(err.message)}<br>Vérifie ta connexion internet et réessaie.</div></div>`;
+    view.innerHTML=emptyState('cloud','Connexion à la base impossible',
+      `${esc(err.message)}<br>Vérifie ta connexion internet et réessaie.<div style="margin-top:14px;"><button class="btn btn-primary" onclick="location.reload()">${ic('refresh')} Réessayer</button></div>`);
     return;
   }
   window.addEventListener('hashchange', render);
-  document.getElementById('burgerBtn').addEventListener('click',()=>{
-    document.getElementById('sidebar').classList.add('show');
-    document.getElementById('sidebarBackdrop').classList.add('show');
+  document.getElementById('sheetBackdrop').addEventListener('click',()=>toggleMoreSheet(false));
+  document.addEventListener('keydown',e=>{
+    if(e.key!=='Escape') return;
+    if(document.querySelector('.modal-backdrop')) closeModal();
+    toggleMoreSheet(false);
   });
-  function closeSidebar(){
-    document.getElementById('sidebar').classList.remove('show');
-    document.getElementById('sidebarBackdrop').classList.remove('show');
-  }
-  document.getElementById('sidebarClose').addEventListener('click',closeSidebar);
-  document.getElementById('sidebarBackdrop').addEventListener('click',closeSidebar);
-  document.getElementById('navMobile').addEventListener('click',closeSidebar);
   render();
 }
 init();

@@ -348,12 +348,12 @@ function computeRecords(){
    équipe est connue.
    ============================================================ */
 const PLAYER_CRITERIA=[
-  {key:'goals',    icon:'⚽', label:'Buts'},
-  {key:'assists',  icon:'🎯', label:'Passes décisives'},
-  {key:'generous', icon:'🤝', label:'Généreux',               hint:'partenaires différents servis'},
-  {key:'wins',     icon:'✅', label:'Victoires'},
-  {key:'impact',   icon:'💥', label:'Impact sur son équipe',   hint:'part des buts de son équipe (buts + passes)'},
-  {key:'clutch',   icon:'🔥', label:'Clutch',                  hint:'buts qui égalisent ou font passer devant (à partir de la 70e minute)'}
+  {key:'goals',    icon:'ball', label:'Buts'},
+  {key:'assists',  icon:'target', label:'Passes décisives'},
+  {key:'generous', icon:'link', label:'Généreux',               hint:'partenaires différents servis'},
+  {key:'wins',     icon:'check', label:'Victoires'},
+  {key:'impact',   icon:'zap', label:'Impact sur son équipe',   hint:'part des buts de son équipe (buts + passes)'},
+  {key:'clutch',   icon:'flame', label:'Clutch',                  hint:'buts qui égalisent ou font passer devant (à partir de la 70e minute)'}
 ];
 function playerCriteriaRankings(){
   const players=STATE.players.filter(p=>playerFiveIds(p.id).map(getFive).filter(Boolean).some(f=>!isFutureFive(f)));
@@ -400,7 +400,7 @@ function playerCriteriaRankings(){
 const MINUTE_BIN=5; /* tranche de minutes des courbes/histogrammes */
 function timeToMin(t){ const m=/^(\d{1,2}):(\d{2})/.exec(t||''); return m? (+m[1])*60+(+m[2]) : null; }
 function minuteHistogramSVG(minutes,bin,color){
-  if(!minutes.length) return emptyState('⏱️','Aucune minute enregistrée pour le moment');
+  if(!minutes.length) return emptyState('timer','Aucune minute enregistrée pour le moment');
   const maxMin=Math.max(...minutes);
   // L'axe couvre toujours un match complet (0-90'), même sans but en fin de match ; il s'étend si un but est marqué plus tard
   const nb=Math.max(Math.floor(maxMin/bin)+1, Math.ceil(90/bin));
@@ -448,7 +448,7 @@ function fiveScoreCurveSVG(fiveId){
     d+=` L ${X(xMax).toFixed(1)} ${Y(prev).toFixed(1)}`;
     return d;
   };
-  const COL_A='#3b82f6', COL_B='#ef4444', COL_TIE='#8b5cf6';
+  const COL_A=TEAM_COLORS.A, COL_B=TEAM_COLORS.B, COL_TIE=TEAM_COLORS.tie;
   /* Quand les deux équipes sont à égalité, les deux lignes se superposent : on trace ces tronçons en violet. */
   let tie='';
   pts.forEach((pt,i)=>{
@@ -462,9 +462,9 @@ function fiveScoreCurveSVG(fiveId){
   for(let m=0; m<=xMax; m+=xStep) grid+=`<text x="${X(m).toFixed(1)}" y="${H-10}" text-anchor="middle" font-size="10" fill="currentColor" opacity=".7">${m}'</text>`;
   const dots=pts.slice(1).map(pt=>{
     const g=pt.g, col=g.team==='A'?COL_A:COL_B, sc=getPlayer(g.scorerId);
-    return `<circle cx="${X(pt.m).toFixed(1)}" cy="${Y(pt[g.team==='A'?'a':'b']).toFixed(1)}" r="4.5" fill="${col}" stroke="#fff" stroke-width="1.2"><title>${pt.m}' - ${g.isOwnGoal?'CSC ':''}${esc(playerName(sc))} (${g.after.a}-${g.after.b})</title></circle>`;
+    return `<circle cx="${X(pt.m).toFixed(1)}" cy="${Y(pt[g.team==='A'?'a':'b']).toFixed(1)}" r="4.5" fill="${col}" stroke="var(--surface)" stroke-width="1.5"><title>${pt.m}' - ${g.isOwnGoal?'CSC ':''}${esc(playerName(sc))} (${g.after.a}-${g.after.b})</title></circle>`;
   }).join('');
-  return `<div class="card" style="padding:12px;">
+  return `<div class="card chart-card">
     <svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;color:var(--text-dim);">
       ${grid}
       <path d="${stepPath('a')}" fill="none" stroke="${COL_A}" stroke-width="2.4" stroke-linejoin="round"/>
@@ -472,10 +472,10 @@ function fiveScoreCurveSVG(fiveId){
       ${tie}
       ${dots}
     </svg>
-    <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--text-dim);padding:6px 4px 0;">
-      <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${COL_A};margin-right:5px;"></span>Équipe A</span>
-      <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${COL_B};margin-right:5px;"></span>Équipe B</span>
-      ${tie? `<span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${COL_TIE};margin-right:5px;"></span>Égalité</span>`:''}
+    <div class="legend">
+      <span><i style="background:${COL_A}"></i>Équipe A</span>
+      <span><i style="background:${COL_B}"></i>Équipe B</span>
+      ${tie? `<span><i style="background:${COL_TIE}"></i>Égalité</span>`:''}
       ${missing? `<span style="color:var(--text-faint);">${missing} but${missing>1?'s':''} sans minute non affiché${missing>1?'s':''}</span>`:''}
     </div>
   </div>`;
