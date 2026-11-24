@@ -647,6 +647,27 @@ function fileToDataURL(file){
     r.readAsDataURL(file);
   });
 }
+// Réduit une photo (data URL) à PHOTO_MAX_PX de côté max, en JPEG : les photos sont stockées
+// dans la table players et téléchargées à chaque visite, donc elles doivent rester légères.
+const PHOTO_MAX_PX=256;
+function resizePhotoDataURL(src){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();
+    img.onload=()=>{
+      const scale=Math.min(1, PHOTO_MAX_PX/Math.max(img.width,img.height));
+      const c=document.createElement('canvas');
+      c.width=Math.round(img.width*scale);
+      c.height=Math.round(img.height*scale);
+      const ctx=c.getContext('2d');
+      ctx.fillStyle='#fff'; ctx.fillRect(0,0,c.width,c.height); // fond blanc pour les PNG transparents
+      ctx.drawImage(img,0,0,c.width,c.height);
+      const out=c.toDataURL('image/jpeg',0.82);
+      resolve(out.length<src.length? out : src);
+    };
+    img.onerror=reject;
+    img.src=src;
+  });
+}
 function dataURLtoBlob(dataurl){
   const arr=dataurl.split(',');
   const mimeMatch=arr[0].match(/:(.*?);/);
@@ -2784,6 +2805,11 @@ function adminBackupTab(){
     <h3 style="margin-top:0;">💽 Espace de stockage vidéo (Supabase)</h3>
     <div class="page-sub">🎬 ${videosWithFile.length} vidéo${videosWithFile.length>1?'s':''} en ligne - ${fmtFileSize(totalVideoSize)} utilisés sur 1 Go gratuit (${pct}%).</div>
   </div>
+  <div class="card" style="margin-bottom:16px;">
+    <h3 style="margin-top:0;">🖼️ Photos des joueurs</h3>
+    <div class="page-sub" style="margin-bottom:10px;">${fmtFileSize(STATE.players.reduce((s,p)=>s+(p.photo?p.photo.length:0),0))} de photos téléchargées à chaque visite. Les réduire (${PHOTO_MAX_PX} px max) accélère le chargement du site.</div>
+    <button class="btn btn-primary" id="optimizePhotosBtn" onclick="optimizeAllPhotos()">Réduire les photos existantes</button>
+  </div>
   <div class="grid grid-2">
     <div class="card">
       <h3 style="margin-top:0;">📤 Exporter les données</h3>
@@ -2799,6 +2825,26 @@ function adminBackupTab(){
   </div>
   <div class="notice" style="margin-top:16px;">🎥 <b>À propos des vidéos :</b> chaque vidéo de but est envoyée sur Supabase Storage (1 Go gratuit, 50 Mo max par fichier). Le bouton <b>🗜️ Compresser</b> apparaît automatiquement pour les vidéos de plus de 15 Mo lors de l'ajout d'un but.</div>
   `;
+}
+
+async function optimizeAllPhotos(){
+  if(!isAdmin()){ toast('Connecte-toi pour modifier les données','error'); return; }
+  const btn=document.getElementById('optimizePhotosBtn');
+  if(btn){ btn.disabled=true; btn.textContent='Réduction en cours…'; }
+  let done=0, saved=0, failed=0;
+  for(const p of STATE.players){
+    if(!p.photo) continue;
+    try{
+      const small=await resizePhotoDataURL(p.photo);
+      if(small.length<p.photo.length){
+        await PlayersRepo.save(Object.assign({},p,{photo:small}));
+        saved+=p.photo.length-small.length; done++;
+      }
+    }catch(e){ console.error('Photo de',p.name,e); failed++; }
+  }
+  await loadAll();
+  render();
+  toast(`${done} photo${done>1?'s':''} réduite${done>1?'s':''} (${fmtFileSize(saved)} gagnés)${failed?` · ${failed} échec${failed>1?'s':''}`:''}`, failed?'error':'success');
 }
 
 function emptyState(icon,title,sub){
@@ -2856,7 +2902,7 @@ async function submitPlayerForm(ev,playerId){
   if(fd.get('removePhoto')) p.photo=null;
   const file=fd.get('photoFile');
   if(file && file.size>0){
-    try{ p.photo=await fileToDataURL(file); }catch(e){ console.error(e); }
+    try{ p.photo=await resizePhotoDataURL(await fileToDataURL(file)); }catch(e){ console.error(e); toast('Photo illisible','error'); }
   }
   await PlayersRepo.save(p);
   await loadAll();
