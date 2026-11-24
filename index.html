@@ -2,52 +2,49 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
-<title>LeFiveyyy</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚽</text></svg>">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>LeFiveyyy · Stats de nos five</title>
+<meta name="description" content="Scores, classements, notes et records de nos matchs de five.">
+<meta name="theme-color" content="#0b0e13">
+<meta property="og:title" content="LeFiveyyy">
+<meta property="og:description" content="Scores, classements, notes et records de nos matchs de five.">
+<meta property="og:type" content="website">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
 
-<div class="pitch-bg" aria-hidden="true">
-  <svg viewBox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="500" cy="500" r="160" fill="none" stroke="#22c55e" stroke-width="3"/>
-    <circle cx="500" cy="500" r="4" fill="#22c55e"/>
-    <line x1="500" y1="0" x2="500" y2="1000" stroke="#22c55e" stroke-width="3"/>
-    <rect x="0" y="330" width="140" height="340" fill="none" stroke="#22c55e" stroke-width="3"/>
-    <rect x="860" y="330" width="140" height="340" fill="none" stroke="#22c55e" stroke-width="3"/>
-    <path d="M0,470 a30,30 0 0,1 0,60" fill="none" stroke="#22c55e" stroke-width="3"/>
-    <path d="M1000,470 a30,30 0 0,0 0,60" fill="none" stroke="#22c55e" stroke-width="3"/>
-  </svg>
-</div>
-<div class="pitch-ball b1" aria-hidden="true">⚽</div>
-<div class="pitch-ball b2" aria-hidden="true">⚽</div>
+<aside class="side-nav" aria-label="Navigation principale">
+  <a href="#/dashboard" class="brand">
+    <span class="brand-mark"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m12 7.5 4.2 3-1.6 5h-5.2l-1.6-5z"/></svg></span>
+    <span class="brand-text">LeFiveyyy</span>
+  </a>
+  <nav class="side-links" id="navDesktop"></nav>
+  <div class="side-foot" id="authControl"></div>
+</aside>
 
+<header class="top-bar">
+  <a href="#/dashboard" class="brand">
+    <span class="brand-mark"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m12 7.5 4.2 3-1.6 5h-5.2l-1.6-5z"/></svg></span>
+    <span class="top-title" id="mobilePageTitle">LeFiveyyy</span>
+  </a>
+  <div id="authControlMobile"></div>
+</header>
 
-<div class="topbar">
-  <div class="topbar-inner">
-    <a href="#/dashboard" class="brand" style="cursor:pointer;">
-      <div class="ball">⚽</div>
-      <span class="brand-text">LeFiveyyy</span>
-      <span class="page-title-mobile" id="mobilePageTitle"></span>
-    </a>
-    <nav class="nav-desktop" id="navDesktop"></nav>
-    <div id="authControl"></div>
-    <button class="burger" id="burgerBtn">☰</button>
-  </div>
-</div>
+<main id="view" tabindex="-1"></main>
 
-<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
-<div class="sidebar" id="sidebar">
-  <button class="sidebar-close" id="sidebarClose">✕</button>
-  <div id="navMobile"></div>
-</div>
+<nav class="tab-bar" id="tabBar" aria-label="Navigation"></nav>
+<div class="sheet-backdrop" id="sheetBackdrop"></div>
+<div class="sheet" id="moreSheet" role="dialog" aria-label="Plus de pages"></div>
 
-<div id="view"></div>
 <div id="modalRoot"></div>
-<div class="toast-wrap" id="toastWrap"></div>
+<div class="toast-wrap" id="toastWrap" role="status" aria-live="polite"></div>
 
+<script src="js/icons.js"></script>
 <script src="js/utils.js"></script>
 <script src="js/data.js"></script>
 <script src="js/stats.js"></script>

@@ -60,18 +60,18 @@ function goalActionPickerBlock(row,insetSide){
   const hasGoal=(row.goalX!==null&&row.goalX!==undefined);
   const hasPasser=(row.passerX!==null&&row.passerX!==undefined);
   return `<div style="flex:1;min-width:180px;max-width:260px;">
-    <div class="hint" style="margin:0 0 4px;font-weight:700;color:var(--text-dim);text-transform:uppercase;font-size:10.5px;">📍 Action du but (cage en ${insetSide==='top'?'haut':'bas'})</div>
+    <div class="hint" style="margin:0 0 4px;font-weight:700;color:var(--text-dim);text-transform:uppercase;font-size:10.5px;">Action du but (cage en ${insetSide==='top'?'haut':'bas'})</div>
     <div style="border-radius:8px;overflow:hidden;border:1px solid var(--border);cursor:zoom-in;" onclick="openPitchZoom('${row.rowId}')">
-      <svg viewBox="0 0 ${PITCH_VB_W} ${PITCH_VB_H}" width="100%" height="210" style="display:block;background:#15532d;pointer-events:none;">
+      <svg viewBox="0 0 ${PITCH_VB_W} ${PITCH_VB_H}" width="100%" height="210" style="display:block;background:#173b2b;pointer-events:none;">
         ${pitchFieldMarkingsSVG()}
         ${goalActionLinesSVG(row,insetSide)}
       </svg>
     </div>
     <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">
-      <button type="button" class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="openPitchZoom('${row.rowId}')">⛶ Agrandir</button>
-      ${hasShot? `<button type="button" class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="clearGoalPoint('${row.rowId}','shot')">✕ Tir</button>` : ''}
-      ${hasGoal? `<button type="button" class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="clearGoalPoint('${row.rowId}','goal')">✕ Entrée</button>` : ''}
-      ${(hasAssister&&hasPasser)? `<button type="button" class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="clearGoalPoint('${row.rowId}','passer')">✕ Passeur</button>` : ''}
+      <button type="button" class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="openPitchZoom('${row.rowId}')">${ic('fullscreen',13)} Agrandir</button>
+      ${hasShot? `<button type="button" class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="clearGoalPoint('${row.rowId}','shot')">${ic('x',13)} Tir</button>` : ''}
+      ${hasGoal? `<button type="button" class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="clearGoalPoint('${row.rowId}','goal')">${ic('x',13)} Entrée</button>` : ''}
+      ${(hasAssister&&hasPasser)? `<button type="button" class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="clearGoalPoint('${row.rowId}','passer')">${ic('x',13)} Passeur</button>` : ''}
     </div>
   </div>`;
 }
@@ -100,18 +100,18 @@ function pitchZoomContentHTML(){
     : `<rect x="0" y="0" width="${PITCH_VB_W}" height="${PITCH_VB_H}" fill="transparent" style="cursor:crosshair;" onclick="handlePitchZoomClick(event,'${mode}')"/>`;
   const svgInner=`${pitchFieldMarkingsSVG()}${goalActionLinesSVG(row,insetSide)}${pitchRect}`;
   const toggleHTML=`<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
-    <button type="button" class="btn btn-sm ${mode==='shot'?'btn-primary':'btn-ghost'}" onclick="setPickMode('${row.rowId}','shot')">📍 Tir</button>
-    <button type="button" class="btn btn-sm ${mode==='goal'?'btn-primary':'btn-ghost'}" onclick="setPickMode('${row.rowId}','goal')">🥅 Entrée (cage en ${insetSide==='top'?'haut':'bas'})</button>
-    ${hasAssister? `<button type="button" class="btn btn-sm ${mode==='passer'?'btn-primary':'btn-ghost'}" onclick="setPickMode('${row.rowId}','passer')">🎯 Passeur</button>` : ''}
+    <button type="button" class="btn btn-sm ${mode==='shot'?'btn-primary':'btn-ghost'}" onclick="setPickMode('${row.rowId}','shot')">${ic('pin',14)} Tir</button>
+    <button type="button" class="btn btn-sm ${mode==='goal'?'btn-primary':'btn-ghost'}" onclick="setPickMode('${row.rowId}','goal')">${ic('goalNet',14)} Entrée (cage en ${insetSide==='top'?'haut':'bas'})</button>
+    ${hasAssister? `<button type="button" class="btn btn-sm ${mode==='passer'?'btn-primary':'btn-ghost'}" onclick="setPickMode('${row.rowId}','passer')">${ic('target',14)} Passeur</button>` : ''}
   </div>`;
   return `<div style="display:flex;flex-direction:column;align-items:center;gap:14px;max-width:460px;margin:0 auto;">
-    <div style="font-weight:800;font-size:15px;color:var(--text);text-align:center;">⚽ Action du but</div>
+    <div style="font-weight:800;font-size:15px;color:var(--text);text-align:center;">Action du but</div>
     ${toggleHTML}
     <div class="hint" style="text-align:center;margin:-8px 0 0;">${mode==='goal'? "Clique dans la cage à la largeur voulue (la hauteur n'est pas suivie)" : "Clique précisément à l'endroit voulu"}</div>
     <div style="border-radius:14px;overflow:hidden;border:2px solid var(--border);width:100%;">
-      <svg viewBox="0 0 ${PITCH_VB_W} ${PITCH_VB_H}" width="100%" style="display:block;background:#15532d;aspect-ratio:${PITCH_VB_W}/${PITCH_VB_H};">${svgInner}</svg>
+      <svg viewBox="0 0 ${PITCH_VB_W} ${PITCH_VB_H}" width="100%" style="display:block;background:#173b2b;aspect-ratio:${PITCH_VB_W}/${PITCH_VB_H};">${svgInner}</svg>
     </div>
-    <button type="button" class="btn btn-primary btn-block" onclick="closePitchZoom()">✓ Valider</button>
+    <button type="button" class="btn btn-primary btn-block" onclick="closePitchZoom()">${ic('check')} Valider</button>
   </div>`;
 }
 function setPickMode(rowId,mode){
@@ -165,31 +165,31 @@ function clearGoalPoint(rowId,field){
 // confondues) : buts en orange (avec trait plein vers l'entrée dans la cage si connue), passes
 // décisives en bleu (avec trait pointillé pro-style vers le point de tir du but assisté).
 function actionsMapHTML(goalPts,assistPts,height){
-  if(!goalPts.length && !assistPts.length) return emptyState('🗺️','Aucune position enregistrée pour ces actions');
+  if(!goalPts.length && !assistPts.length) return emptyState('map','Aucune position enregistrée pour ces actions');
   let marks='';
   assistPts.forEach(p=>{
     const x1=(p.x*PITCH_VB_W).toFixed(1), y1=(p.y*PITCH_VB_H).toFixed(1);
     if(p.shotX!==null && p.shotX!==undefined){
-      marks+=`<line x1="${x1}" y1="${y1}" x2="${(p.shotX*PITCH_VB_W).toFixed(1)}" y2="${(p.shotY*PITCH_VB_H).toFixed(1)}" stroke="#3b82f6" stroke-width="1.4" stroke-dasharray="4,3" opacity=".7"/>`;
+      marks+=`<line x1="${x1}" y1="${y1}" x2="${(p.shotX*PITCH_VB_W).toFixed(1)}" y2="${(p.shotY*PITCH_VB_H).toFixed(1)}" stroke="#a78bfa" stroke-width="1.4" stroke-dasharray="4,3" opacity=".7"/>`;
     }
-    marks+=`<circle cx="${x1}" cy="${y1}" r="5" fill="#3b82f6" stroke="#fff" stroke-width="1.2" style="cursor:pointer;" onclick="navigate('five/${p.fiveId}')">${p.label?`<title>${esc(p.label)}</title>`:''}</circle>`;
+    marks+=`<circle cx="${x1}" cy="${y1}" r="5" fill="#a78bfa" stroke="#fff" stroke-width="1.2" style="cursor:pointer;" onclick="navigate('five/${p.fiveId}')">${p.label?`<title>${esc(p.label)}</title>`:''}</circle>`;
   });
   goalPts.forEach(p=>{
     const x1=(p.x*PITCH_VB_W).toFixed(1), y1=(p.y*PITCH_VB_H).toFixed(1);
     if(p.goalX!==null && p.goalX!==undefined){
       const gd=goalEntryXY(p.goalX,'top'); // toujours en haut : normalisé comme si on attaquait en haut
-      marks+=`<line x1="${x1}" y1="${y1}" x2="${gd.x.toFixed(1)}" y2="${gd.y.toFixed(1)}" stroke="#f97316" stroke-width="1.4" opacity=".75"/>`;
+      marks+=`<line x1="${x1}" y1="${y1}" x2="${gd.x.toFixed(1)}" y2="${gd.y.toFixed(1)}" stroke="#b4f461" stroke-width="1.4" opacity=".75"/>`;
     }
-    marks+=`<circle cx="${x1}" cy="${y1}" r="5" fill="#f97316" stroke="#fff" stroke-width="1.2" style="cursor:pointer;" onclick="navigate('five/${p.fiveId}')">${p.label?`<title>${esc(p.label)}</title>`:''}</circle>`;
+    marks+=`<circle cx="${x1}" cy="${y1}" r="5" fill="#b4f461" stroke="#fff" stroke-width="1.2" style="cursor:pointer;" onclick="navigate('five/${p.fiveId}')">${p.label?`<title>${esc(p.label)}</title>`:''}</circle>`;
   });
-  return `<div style="border-radius:10px;overflow:hidden;border:1px solid var(--border);">
-    <svg viewBox="0 0 ${PITCH_VB_W} ${PITCH_VB_H}" width="100%" height="${height||380}" style="display:block;background:#15532d;">
+  return `<div style="border-radius:var(--radius);overflow:hidden;border:1px solid var(--border-soft);background:var(--surface);">
+    <svg viewBox="0 0 ${PITCH_VB_W} ${PITCH_VB_H}" width="100%" height="${height||380}" style="display:block;background:#173b2b;">
       ${pitchFieldMarkingsSVG()}
       ${marks}
     </svg>
-    <div style="display:flex;gap:14px;padding:10px 14px;font-size:12px;color:var(--text-dim);flex-wrap:wrap;">
-      <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#f97316;margin-right:5px;"></span>Buts</span>
-      <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#3b82f6;margin-right:5px;"></span>Passes décisives</span>
+    <div class="legend" style="padding:10px 14px;">
+      <span><i style="background:#b4f461"></i>Buts</span>
+      <span><i style="background:#a78bfa"></i>Passes décisives</span>
     </div>
   </div>`;
 }
@@ -268,13 +268,13 @@ function allFivesActionsMapHTML(){
 function matchActionsMapHTML(fiveId){
   const goalsTL=fiveGoalsWithScore(fiveId);
   const withPos=goalsTL.filter(g=>g.shotX!==null&&g.shotX!==undefined&&g.shotY!==null&&g.shotY!==undefined);
-  if(!withPos.length) return emptyState('🗺️','Aucune position de tir enregistrée pour ce Five');
+  if(!withPos.length) return emptyState('map','Aucune position de tir enregistrée pour ce match');
   const five=getFive(fiveId);
   const aSide=(five&&five.attackingEndA)||'top';
   const bSide=aSide==='top'?'bottom':'top';
   const topTeam = aSide==='top'?'A':'B';
   const bottomTeam = aSide==='top'?'B':'A';
-  const TEAM_A_COLOR='#3b82f6', TEAM_B_COLOR='#ef4444'; /* bleu vs rouge : couleurs vraiment distinctes entre équipe A et équipe B */
+  const TEAM_A_COLOR=TEAM_COLORS.A, TEAM_B_COLOR=TEAM_COLORS.B;
   const topColor = topTeam==='A'? TEAM_A_COLOR : TEAM_B_COLOR;
   const bottomColor = bottomTeam==='A'? TEAM_A_COLOR : TEAM_B_COLOR;
   const LABEL_H=16;
@@ -302,16 +302,16 @@ function matchActionsMapHTML(fiveId){
     }
     marks+=`<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="5" fill="${color}" stroke="#fff" stroke-width="1.2" style="cursor:pointer;" onclick="navigate('player/${g.scorerId}')"><title>${esc(playerName(scorer))} - ${g.isOwnGoal?'CSC':''} ${g.after.a}-${g.after.b}</title></circle>`;
   });
-  return `<div style="border-radius:10px;overflow:hidden;border:1px solid var(--border);">
-    <svg viewBox="0 0 ${PITCH_VB_W} ${totalH}" width="100%" height="460" style="display:block;background:#15532d;">
+  return `<div style="border-radius:var(--radius);overflow:hidden;border:1px solid var(--border-soft);background:var(--surface);">
+    <svg viewBox="0 0 ${PITCH_VB_W} ${totalH}" width="100%" height="460" style="display:block;background:#173b2b;">
       <text x="${PITCH_VB_W/2}" y="${LABEL_H-3}" text-anchor="middle" fill="${topColor}" font-size="9" font-weight="800">▲ ÉQUIPE ${topTeam}</text>
       <g transform="translate(0,${pitchY0})">${pitchFieldMarkingsSVG()}</g>
       <text x="${PITCH_VB_W/2}" y="${totalH-4}" text-anchor="middle" fill="${bottomColor}" font-size="9" font-weight="800">▼ ÉQUIPE ${bottomTeam}</text>
       ${marks}
     </svg>
-    <div style="display:flex;gap:14px;padding:10px 14px;font-size:12px;color:var(--text-dim);flex-wrap:wrap;">
-      <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${topColor};margin-right:5px;"></span>Équipe ${topTeam} - marque en haut</span>
-      <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${bottomColor};margin-right:5px;"></span>Équipe ${bottomTeam} - marque en bas</span>
+    <div class="legend" style="padding:10px 14px;">
+      <span><i style="background:${topColor}"></i>Équipe ${topTeam} - marque en haut</span>
+      <span><i style="background:${bottomColor}"></i>Équipe ${bottomTeam} - marque en bas</span>
       <span style="color:var(--text-faint);">Trait plein = tir → entrée (largeur) · pointillé = passeur → tir</span>
     </div>
   </div>`;

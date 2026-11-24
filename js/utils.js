@@ -90,7 +90,7 @@ function initials(name){
   return name.trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();
 }
 function playerName(p){ return p? p.name : 'Joueur supprimé'; }
-function fmtNum(n,d){ if(n===null||n===undefined||isNaN(n)) return '-'; return d? n.toFixed(d):Math.round(n); }
+function fmtNum(n,d){ if(n===null||n===undefined||isNaN(n)) return "-"; return d? n.toFixed(d) : String(Math.round(n)); }
 function fmtPct(n){ return (n===null||n===undefined)? '-' : n+'%'; }
 function debounce(fn,ms){ let t; return (...a)=>{clearTimeout(t); t=setTimeout(()=>fn(...a),ms);}; }
 function toast(msg,type){

@@ -44,7 +44,7 @@ function playerRatingInFive(playerId,fiveId){ return matchRatings(fiveId).find(r
 function ratingClass(r){ return r>=8? 'rt-great' : r>=7? 'rt-good' : r>=6? 'rt-ok' : r>=5? 'rt-meh' : 'rt-bad'; }
 function ratingBadgeHTML(r,mvp){
   if(r===null||r===undefined) return '';
-  return `<span class="rating-badge ${ratingClass(r)}" title="Note du match${mvp?' · Homme du match':''}">${mvp?'★ ':''}${r.toFixed(1)}</span>`;
+  return `<span class="rating-badge ${ratingClass(r)}" title="Note du match${mvp?' · Homme du match':''}">${r.toFixed(1)}</span>`;
 }
 
 /* ---------- Résumé par joueur : notes, forme, séries ---------- */

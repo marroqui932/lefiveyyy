@@ -113,7 +113,7 @@ function generateBalancedTeams(presentIds,constraints,seed){
 let _tg={present:new Set(), constraints:[], seed:1, result:null};
 function viewTeams(){
   return `
-  <div class="page-header"><div><h1>🎲 Générateur d'équipes</h1><div class="page-sub">Équipes équilibrées d'après le niveau de chacun et l'historique des Five</div></div></div>
+  ${pageHeader("Générateur d'équipes","Équipes équilibrées d'après le niveau de chacun et l'historique des matchs")}
   <div id="teamGenBody">${teamGenBodyHTML()}</div>`;
 }
 function teamGenRefresh(){
@@ -165,25 +165,25 @@ function useGeneratedTeams(i){
 function teamGenBodyHTML(){
   const all=[...STATE.players].sort((a,b)=>a.name.localeCompare(b.name));
   const presentList=all.filter(p=>_tg.present.has(p.id));
-  const COL_A='#3b82f6', COL_B='#ef4444';
+  const COL_A=TEAM_COLORS.A, COL_B=TEAM_COLORS.B;
   const pName=(id)=>esc(playerName(getPlayer(id)));
-  const chips=all.map(p=>`<button type="button" class="btn btn-sm ${_tg.present.has(p.id)?'btn-primary':'btn-ghost'}" onclick="toggleTgPlayer('${p.id}')">${_tg.present.has(p.id)?'✓ ':''}${esc(p.name)}</button>`).join('');
+  const chips=all.map(p=>`<button type="button" class="btn btn-sm ${_tg.present.has(p.id)?'btn-primary':'btn-ghost'}" onclick="toggleTgPlayer('${p.id}')">${_tg.present.has(p.id)?ic("check",14):""}${esc(p.name)}</button>`).join('');
   const opts=presentList.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
   const consRows=_tg.constraints.map((c,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-soft);">
-      <div style="flex:1;font-size:14px;"><b>${pName(c.a)}</b> ${c.type==='together'?'<span style="color:var(--primary);">🤝 dans la même équipe que</span>':'<span style="color:var(--danger);">⚔️ dans l\'équipe adverse de</span>'} <b>${pName(c.b)}</b>${(_tg.present.has(c.a)&&_tg.present.has(c.b))?'':' <span class="page-sub" style="font-size:11.5px;">(ignorée : un des deux n\'est pas sélectionné)</span>'}</div>
-      <button type="button" class="btn btn-sm btn-ghost" onclick="tgRemoveConstraint(${i})">✕</button>
+      <div style="flex:1;font-size:14px;"><b>${pName(c.a)}</b> ${c.type==='together'?'<span style="color:var(--primary);">même équipe que</span>':'<span style="color:var(--danger);">équipe adverse de</span>'} <b>${pName(c.b)}</b>${(_tg.present.has(c.a)&&_tg.present.has(c.b))?'':' <span class="page-sub" style="font-size:11.5px;">(ignorée : un des deux n\'est pas sélectionné)</span>'}</div>
+      <button type="button" class="btn btn-sm btn-ghost" onclick="tgRemoveConstraint(${i})" aria-label="Retirer">${ic("x",14)}</button>
     </div>`).join('');
 
   const r=_tg.result;
   let resultHTML='';
-  if(r && r.error) resultHTML=`<div class="notice" style="margin-top:16px;">⚠️ ${esc(r.error)}</div>`;
+  if(r && r.error) resultHTML=`<div class="notice">${ic("alert")}<div>${esc(r.error)}</div></div>`;
   else if(r && r.variants){
     const {rating,games}=r.ratings;
     const teamCol=(ids,label,color,elo)=>`<div style="flex:1;min-width:200px;">
         <div style="font-weight:800;color:${color};margin-bottom:6px;">${label} <span class="page-sub" style="font-weight:500;">· niveau ${Math.round(elo)}</span></div>
         ${ids.map(id=>{ const p=getPlayer(id); return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;">${avatarHTML(p,28)}<span style="font-weight:600;font-size:14px;">${esc(playerName(p))}</span><span class="page-sub" style="margin-left:auto;font-size:11.5px;">${Math.round(rating[id])}${games[id]<3?' · ?':''}</span></div>`; }).join('')}
       </div>`;
-    resultHTML=`<div class="section-title">✅ Propositions</div>`+r.variants.map((v,i)=>{
+    resultHTML=`${sectionTitle("shuffle","Propositions")}`+r.variants.map((v,i)=>{
       const pA=Math.round(v.pA*100), pB=100-pA;
       const rep=v.repeated.slice(0,3).map(x=>`${pName(x.a)} + ${pName(x.b)} (${x.together}/${x.both} Five ensemble)`).join(', ');
       return `<div class="card" style="margin-bottom:14px;">
@@ -191,41 +191,41 @@ function teamGenBodyHTML(){
           <div style="font-weight:800;">Proposition ${i+1}</div>
           <div style="font-size:13px;color:var(--text-dim);">Victoire estimée : <b style="color:${COL_A};">A ${pA}%</b> · <b style="color:${COL_B};">B ${pB}%</b></div>
         </div>
-        <div style="display:flex;gap:18px;flex-wrap:wrap;">${teamCol(v.teamA,'🔵 Équipe A',COL_A,v.eloA)}${teamCol(v.teamB,'🔴 Équipe B',COL_B,v.eloB)}</div>
+        <div style="display:flex;gap:18px;flex-wrap:wrap;">${teamCol(v.teamA,"Équipe A",COL_A,v.eloA)}${teamCol(v.teamB,"Équipe B",COL_B,v.eloB)}</div>
         <div class="hint" style="margin-top:10px;line-height:1.6;">
-          ⚖️ Écart de niveau : ${Math.round(Math.abs(v.eloA-v.eloB))} pts · contribution offensive A ${fmtNum(v.offA,2)} / B ${fmtNum(v.offB,2)} (buts+passes par Five)<br>
-          🆕 ${v.freshCount} duo${v.freshCount>1?'s':''} qui ne se sont jamais retrouvé${v.freshCount>1?'s':''} dans la même équipe${rep? `<br>🔁 Habitués : ${rep}`:''}
+          Écart de niveau : ${Math.round(Math.abs(v.eloA-v.eloB))} pts · contribution offensive A ${fmtNum(v.offA,2)} / B ${fmtNum(v.offB,2)} (buts+passes par Five)<br>
+          ${v.freshCount} duo${v.freshCount>1?'s':''} qui ne se sont jamais retrouvé${v.freshCount>1?'s':''} dans la même équipe${rep? `<br>Habitués : ${rep}`:''}
         </div>
-        ${isAdmin()? `<div style="margin-top:12px;"><button type="button" class="btn btn-sm btn-primary" onclick="useGeneratedTeams(${i})">📝 Créer un Five avec ces équipes</button></div>` : ''}
+        ${isAdmin()? `<div style="margin-top:12px;"><button type="button" class="btn btn-sm btn-primary" onclick="useGeneratedTeams(${i})">${ic("plus")}Créer un five avec ces équipes</button></div>` : ''}
       </div>`;
-    }).join('') + `<button type="button" class="btn btn-ghost" onclick="rerollTeams()">🔄 Relancer (autres propositions)</button>
+    }).join('') + `<button type="button" class="btn btn-ghost" onclick="rerollTeams()">${ic("refresh")}Autres propositions</button>
       <div class="hint" style="margin-top:6px;">« ? » = moins de 3 Five joués : son niveau est encore peu fiable (compté comme moyen).</div>`;
   }
   const n=presentList.length;
   return `
-  <div class="section-title">1️⃣ Qui est là ? <span class="page-sub">(${n} sélectionné${n>1?'s':''})</span></div>
+  <div class="section-title">${ic("users")}<span>Qui est là ?</span><span class="count">${n} sélectionné${n>1?'s':''}</span></div>
   <div class="card">
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
       <button type="button" class="btn btn-sm btn-ghost" onclick="tgSelectAll()">Tout sélectionner</button>
       <button type="button" class="btn btn-sm btn-ghost" onclick="tgSelectNone()">Aucun</button>
-      <button type="button" class="btn btn-sm btn-ghost" onclick="tgSelectNext()">🔜 Joueurs du prochain Five</button>
+      <button type="button" class="btn btn-sm btn-ghost" onclick="tgSelectNext()">${ic("calendar")}Joueurs du prochain match</button>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">${chips || '<span class="page-sub">Aucun joueur.</span>'}</div>
   </div>
 
-  <div class="section-title">2️⃣ Contraintes <span class="page-sub">(optionnel)</span></div>
+  <div class="section-title">${ic("link")}<span>Contraintes</span><span class="count">optionnel</span></div>
   <div class="card">
     ${consRows || '<div class="page-sub" style="margin-bottom:10px;">Aucune contrainte.</div>'}
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px;">
       <select class="input" id="tgSelA" style="max-width:170px;"><option value="">Joueur 1</option>${opts}</select>
-      <select class="input" id="tgSelType" style="max-width:240px;"><option value="together">🤝 ensemble (même équipe)</option><option value="apart">⚔️ séparés (équipes adverses)</option></select>
+      <select class="input" id="tgSelType" style="max-width:240px;"><option value="together">Ensemble (même équipe)</option><option value="apart">Séparés (équipes adverses)</option></select>
       <select class="input" id="tgSelB" style="max-width:170px;"><option value="">Joueur 2</option>${opts}</select>
       <button type="button" class="btn btn-sm btn-ghost" onclick="tgAddConstraint()">+ Ajouter</button>
     </div>
     ${n<2? '<div class="hint">Sélectionne d\'abord les joueurs présents pour pouvoir ajouter une contrainte.</div>':''}
   </div>
 
-  <div style="margin-top:18px;"><button type="button" class="btn btn-primary" onclick="generateTeams()" ${n<2?'disabled':''}>🎲 Générer les équipes</button></div>
+  <div style="margin-top:18px;"><button type="button" class="btn btn-primary" onclick="generateTeams()" ${n<2?'disabled':''}>${ic("shuffle")}Générer les équipes</button></div>
   ${resultHTML}
 
   <div class="hint" style="margin-top:20px;line-height:1.6;">Comment ça marche : chaque joueur a un niveau (classement type Elo calculé sur vos Five : battre une équipe forte rapporte plus, et l'écart de buts compte). Le site teste toutes les répartitions et garde celles où les deux équipes ont un niveau et une force offensive proches, en évitant de remettre ensemble ceux qui jouent tout le temps dans la même équipe (les Five récents comptent plus) et en favorisant les duos qui ne se sont jamais retrouvés ensemble.</div>`;
