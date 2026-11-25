@@ -115,7 +115,7 @@ async function render(){
     console.error(err);
     view.innerHTML=emptyState('alert','Une erreur est survenue',esc(err.message));
   }
-  if(pageChanged){ window.scrollTo(0,0); view.classList.remove('enter'); void view.offsetWidth; view.classList.add('enter'); }
+  if(pageChanged){ window.scrollTo(0,0); animateView(view); }
   afterRenderHooks();
 }
 function afterRenderHooks(){

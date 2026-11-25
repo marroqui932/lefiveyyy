@@ -1,19 +1,17 @@
 'use strict';
 /* ============================================================
-   NOTES /10, HOMME DU MATCH, FORME, SÉRIES, ELO, ASSOCIATIONS
+   HOMME DU MATCH, FORME, SÉRIES, ELO, ASSOCIATIONS
    Tout est calculé à partir de STATE (aucune donnée stockée) et mis en cache
    jusqu'au prochain loadAll().
    ============================================================ */
 
-/* ---------- Note /10 d'un joueur sur un Five ----------
-   points = buts + 0,75 x passes − 0,75 x CSC + 0,5 x buts clutch
-   La contribution est comparée à la moyenne des joueurs du match (ratio) :
-   un but compte plus dans un match serré à 5-6 que dans un 14-9.
-   note = 5,2 + 1,3 x ratio + résultat (±0,5) + écart de buts (±0,08/but, plafonné à ±0,4)
-   Bornée entre 3 et 10. Un match "moyen" donne ~6,5, une grosse perf 8,5 à 9,5. */
-const RATING_MIN=3, RATING_MAX=10;
-function matchRatings(fiveId){
-  return cached('ratings:'+fiveId,()=>{
+/* ---------- Homme du match d'un Five ----------
+   Pas de note affichée : on désigne seulement le joueur le plus décisif.
+   points = buts + 0,75 x passes − 0,75 x CSC + 0,5 x buts clutch, comparés à la moyenne du match,
+   + un bonus pour l'équipe gagnante (±0,5, plus ±0,08 par but d'écart, plafonné à ±0,4).
+   Départage : G+A, puis buts, puis écart de buts. */
+function matchContributions(fiveId){
+  return cached('contrib:'+fiveId,()=>{
     const five=getFive(fiveId);
     if(!five || isFutureFive(five) || !goalsForFive(fiveId).length) return [];
     const parts=participationsForFive(fiveId).filter(p=>p.teamId==='A'||p.teamId==='B');
@@ -29,38 +27,25 @@ function matchRatings(fiveId){
               result: gd>0?'win':gd<0?'loss':'draw', points};
     });
     const ref=Math.max(0.5, rows.reduce((a,r)=>a+r.points,0)/rows.length);
-    rows.forEach(r=>{
-      const raw=5.2 + 1.3*(r.points/ref) + (r.gd>0?0.5:r.gd<0?-0.5:0) + Math.max(-0.4,Math.min(0.4,0.08*r.gd));
-      r.rating=Math.round(Math.max(RATING_MIN,Math.min(RATING_MAX,raw))*10)/10;
-    });
-    // Homme du match : meilleure note ; départage par G+A, puis buts, puis équipe gagnante.
-    const best=rows.slice().sort((a,b)=>b.rating-a.rating || (b.goals+b.assists)-(a.goals+a.assists) || b.goals-a.goals || b.gd-a.gd)[0];
+    rows.forEach(r=>{ r.mvpScore=1.3*(r.points/ref) + (r.gd>0?0.5:r.gd<0?-0.5:0) + Math.max(-0.4,Math.min(0.4,0.08*r.gd)); });
+    const best=rows.slice().sort((a,b)=>b.mvpScore-a.mvpScore || (b.goals+b.assists)-(a.goals+a.assists) || b.goals-a.goals || b.gd-a.gd)[0];
     rows.forEach(r=>{ r.isMvp= r===best; });
-    return rows.sort((a,b)=>b.rating-a.rating);
+    return rows;
   });
 }
-function fiveMvp(fiveId){ return matchRatings(fiveId).find(r=>r.isMvp) || null; }
-function playerRatingInFive(playerId,fiveId){ return matchRatings(fiveId).find(r=>r.playerId===playerId) || null; }
-function ratingClass(r){ return r>=8? 'rt-great' : r>=7? 'rt-good' : r>=6? 'rt-ok' : r>=5? 'rt-meh' : 'rt-bad'; }
-function ratingBadgeHTML(r,mvp){
-  if(r===null||r===undefined) return '';
-  return `<span class="rating-badge ${ratingClass(r)}" title="Note du match${mvp?' · Homme du match':''}">${r.toFixed(1)}</span>`;
-}
+function fiveMvp(fiveId){ return matchContributions(fiveId).find(r=>r.isMvp) || null; }
+function isMvpOfFive(playerId,fiveId){ const m=fiveMvp(fiveId); return !!(m && m.playerId===playerId); }
 
 /* ---------- Résumé par joueur : notes, forme, séries ---------- */
 function playerForm(playerId){
   return cached('form:'+playerId,()=>{
     const fs=playerFullStats(playerId);
     const games=fs.perFive.map(pf=>{
-      const r=playerRatingInFive(playerId,pf.five.id);
+      const r=matchContributions(pf.five.id).find(x=>x.playerId===playerId);
       return {five:pf.five, result:pf.result, goals:pf.goals, assists:pf.assists, ga:pf.ga,
-              rating:r? r.rating : null, isMvp:!!(r&&r.isMvp), gd:r? r.gd : null};
+              isMvp:!!(r&&r.isMvp), gd:r? r.gd : null};
     });
-    const rated=games.filter(g=>g.rating!==null);
-    const avg=(arr)=>arr.length? arr.reduce((a,g)=>a+g.rating,0)/arr.length : null;
-    const last5=rated.slice(-5);
     const withGd=games.filter(g=>g.gd!==null);
-    const best=rated.reduce((m,g)=>(!m||g.rating>m.rating)?g:m,null);
 
     // Séries (dans l'ordre chronologique). "current" = série en cours à la fin.
     function streak(pred){
@@ -76,9 +61,7 @@ function playerForm(playerId){
     }
     return {
       games,
-      avgRating:avg(rated), ratedCount:rated.length,
-      last5Avg:avg(last5), last5:withResult.slice(-5),
-      bestRating:best? best.rating : null, bestRatingFive:best? best.five : null,
+      last5:withResult.slice(-5),
       mvpCount:games.filter(g=>g.isMvp).length,
       plusMinus:withGd.reduce((a,g)=>a+g.gd,0), avgPlusMinus:withGd.length? withGd.reduce((a,g)=>a+g.gd,0)/withGd.length : null,
       winStreak:resStreak(r=>r==='win'), unbeatenStreak:resStreak(r=>r!=='loss'), lossStreak:resStreak(r=>r==='loss'),
@@ -89,7 +72,7 @@ function playerForm(playerId){
 function formChipsHTML(last5){
   if(!last5 || !last5.length) return '<span class="page-sub">-</span>';
   const L={win:'V',draw:'N',loss:'D'};
-  return `<span class="form-chips">${last5.map(g=>`<span class="form-chip ${g.result}" title="Five #${pad2(fiveNumber(g.five.id))} · ${fmtDateShort(g.five.date)}${g.rating!==null?' · note '+g.rating.toFixed(1):''}">${L[g.result]}</span>`).join('')}</span>`;
+  return `<span class="form-chips">${last5.map(g=>`<span class="form-chip ${g.result}" title="Five #${pad2(fiveNumber(g.five.id))} · ${fmtDateShort(g.five.date)}${g.isMvp?' · homme du match':''}">${L[g.result]}</span>`).join('')}</span>`;
 }
 
 /* ---------- Elo avec historique ----------
@@ -215,16 +198,15 @@ function rankByForm(metric,{avgOnly=false,asc=false,round=1}={}){
   const f=Math.pow(10,round);
   return withRanks(rows, v=>Math.round(v*f)/f);
 }
-function ratingRanking(){ return rankByForm(f=>f.avgRating,{avgOnly:true}); }
 function mvpRanking(){ return rankByForm(f=>f.mvpCount,{round:0}).filter(r=>r.value>0); }
 function plusMinusRanking(){ return rankByForm(f=>f.avgPlusMinus,{avgOnly:true}); }
-function formRanking(){ return rankByForm(f=>f.last5.length? f.last5Avg : null,{avgOnly:true}); }
 
-/* Joueur en forme : meilleure note moyenne sur ses 3 derniers Five (au moins 2 matchs notés) */
+/* Joueur en forme : le plus de buts + passes sur ses 3 derniers Five (au moins 2 matchs joués),
+   départagé par les victoires sur ces matchs. */
 function playerInForm(){
   const rows=STATE.players.map(p=>{
-    const g=playerForm(p.id).games.filter(x=>x.rating!==null).slice(-3);
-    return {player:p, n:g.length, avg:g.length? g.reduce((a,x)=>a+x.rating,0)/g.length : 0};
-  }).filter(r=>r.n>=2).sort((a,b)=>b.avg-a.avg);
+    const g=playerForm(p.id).games.slice(-3);
+    return {player:p, n:g.length, ga:g.reduce((a,x)=>a+x.ga,0), wins:g.filter(x=>x.result==='win').length};
+  }).filter(r=>r.n>=2 && r.ga>0).sort((a,b)=>b.ga-a.ga || b.wins-a.wins);
   return rows[0]||null;
 }
