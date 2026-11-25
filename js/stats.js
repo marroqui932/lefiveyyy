@@ -317,17 +317,7 @@ function computeRecords(){
     mostTotalGA: topBy(fs=>fs.ga),
     longestGoalStreak: topBy(fs=>fs.bestGoalStreak),
     longestGAStreak: topBy(fs=>fs.bestGAStreak),
-    // Records ajoutés avec ratings.js (note, MVP, séries de résultats, Elo)
-    bestRating: (()=>{
-      let best=-Infinity; const holders=[], seen=new Set();
-      fivesSorted().forEach(f=>matchRatings(f.id).forEach(r=>{ if(r.rating>best) best=r.rating; }));
-      if(best===-Infinity) return null;
-      fivesSorted().forEach(f=>matchRatings(f.id).forEach(r=>{
-        const pl=getPlayer(r.playerId);
-        if(r.rating===best && pl && !seen.has(r.playerId)){ seen.add(r.playerId); holders.push({player:pl, five:f}); }
-      }));
-      return {value:best.toFixed(1), holders};
-    })(),
+    // Records ajoutés avec ratings.js (homme du match, séries de résultats, Elo)
     mostMvp: topByPlayer(p=>playerForm(p.id).mvpCount),
     longestWinStreak: topByPlayer(p=>playerForm(p.id).winStreak.best),
     longestUnbeaten: topByPlayer(p=>playerForm(p.id).unbeatenStreak.best),

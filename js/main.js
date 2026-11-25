@@ -51,7 +51,7 @@ window.optimizeAllPhotos=optimizeAllPhotos;
 
 async function init(){
   const view=document.getElementById('view');
-  view.innerHTML=`<div class="loading"><div class="spinner"></div><div>Chargement des stats…</div></div>`;
+  view.innerHTML=loaderHTML('Échauffement en cours…');
   try{
     await initAuth();
     await loadAll();
