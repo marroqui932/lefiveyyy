@@ -253,3 +253,11 @@ body:not(.has-ticker) .channel-bug{bottom:18px;}
 .sp-admin-logo .sp-word{font-size:12px;}
 @media(min-width:1024px){ #view{padding-bottom:28px;} body.has-ticker #view{padding-bottom:28px;} }
 @media(max-width:1023px){ .site-footer{padding:0 16px calc(var(--tab-h) + 60px + env(safe-area-inset-bottom));} #view{padding-bottom:16px !important;} .ft-bottom{justify-content:center;text-align:center;} }
+
+/* Sponsors dans le bandeau défilant */
+.tk-sponsor{display:inline-flex;align-items:center;height:26px;flex-shrink:0;}
+.tk-sponsor img{height:24px;width:auto;max-width:120px;object-fit:contain;}
+.tk-sponsor .sp-word{font-size:17px;color:var(--text);}
+@media(max-width:1023px){.tk-sponsor img{height:20px;}.tk-sponsor .sp-word{font-size:14px;}}
+/* Logos sombres lisibles sur fond bleu nuit : léger contour clair (sans effet sur les logos blancs) */
+.tk-sponsor img,.pb-item img,.ft-item img,.led-item img{filter:drop-shadow(0 0 1px rgba(255,255,255,.9)) drop-shadow(0 0 3px rgba(255,255,255,.35));}
