@@ -134,9 +134,9 @@ function _playerFullStats(playerId){
   const bestFiveGoals=perFive.reduce((m,x)=>Math.max(m,x.goals),0);
   const bestFiveAssists=perFive.reduce((m,x)=>Math.max(m,x.assists),0);
   const bestFiveGA=perFive.reduce((m,x)=>Math.max(m,x.ga),0);
-  const bestFiveGoalsFive=perFive.find(x=>x.goals===bestFiveGoals && bestFiveGoals>0)?.five || null;
-  const bestFiveAssistsFive=perFive.find(x=>x.assists===bestFiveAssists && bestFiveAssists>0)?.five || null;
-  const bestFiveGAFive=perFive.find(x=>x.ga===bestFiveGA && bestFiveGA>0)?.five || null;
+  const bestFiveGoalsFive=perFive.filter(x=>x.goals===bestFiveGoals && bestFiveGoals>0).map(x=>x.five);
+  const bestFiveAssistsFive=perFive.filter(x=>x.assists===bestFiveAssists && bestFiveAssists>0).map(x=>x.five);
+  const bestFiveGAFive=perFive.filter(x=>x.ga===bestFiveGA && bestFiveGA>0).map(x=>x.five);
   const totalFivesCount=STATE.fives.filter(f=>!isFutureFive(f)).length;
   const participationRate=totalFivesCount? Math.round(matches/totalFivesCount*100):null;
   return {
@@ -273,22 +273,15 @@ function computeRecords(){
     const holders=fullStats.filter(({fs})=>fn(fs)===maxV).map(({player})=>({player}));
     return {value:maxV, holders};
   }
-  // topByFive : renvoie {value, holders:[{player,five}]} - un joueur n'apparaît
-  // qu'une fois (avec le premier Five où il a atteint ce record), même s'il l'a
-  // égalé plusieurs fois lui-même.
+  // topByFive : renvoie {value, holders:[{player,five}]} : chaque fois que le record
+  // est atteint (un joueur qui l'a fait sur deux matchs apparaît deux fois).
   function topByFive(metric){
     let maxV=-Infinity;
     fullStats.forEach(({fs})=>{ fs.perFive.forEach(pf=>{ const v=metric(pf); if(v>maxV) maxV=v; }); });
     if(maxV<=0) return null;
-    const seen=new Set();
     const holders=[];
     fullStats.forEach(({player,fs})=>{
-      fs.perFive.forEach(pf=>{
-        if(metric(pf)===maxV && !seen.has(player.id)){
-          seen.add(player.id);
-          holders.push({player,five:pf.five});
-        }
-      });
+      fs.perFive.forEach(pf=>{ if(metric(pf)===maxV) holders.push({player,five:pf.five}); });
     });
     return {value:maxV, holders};
   }
@@ -299,7 +292,8 @@ function computeRecords(){
     const best= mode==='min'? Math.min(...ms) : Math.max(...ms);
     const seen=new Set(), holders=[];
     goals.filter(g=>g.minute===best).forEach(g=>{
-      if(seen.has(g.scorerId)) return; seen.add(g.scorerId);
+      const k=g.scorerId+'|'+g.fiveId;
+      if(seen.has(k)) return; seen.add(k);
       const pl=getPlayer(g.scorerId);
       if(pl) holders.push({player:pl, five:getFive(g.fiveId)});
     });
@@ -317,11 +311,9 @@ function computeRecords(){
     mostTotalGA: topBy(fs=>fs.ga),
     longestGoalStreak: topBy(fs=>fs.bestGoalStreak),
     longestGAStreak: topBy(fs=>fs.bestGAStreak),
-    // Records ajoutés avec ratings.js (homme du match, séries de résultats, Elo)
-    mostMvp: topByPlayer(p=>playerForm(p.id).mvpCount),
+    // Séries de résultats (ratings.js)
     longestWinStreak: topByPlayer(p=>playerForm(p.id).winStreak.best),
-    longestUnbeaten: topByPlayer(p=>playerForm(p.id).unbeatenStreak.best),
-    peakElo: topByPlayer(p=>eloHistory().games[p.id]? Math.round(eloHistory().peak[p.id]) : 0, ELO_START)
+    longestUnbeaten: topByPlayer(p=>playerForm(p.id).unbeatenStreak.best)
   };
   // Valeur max par joueur (égalités incluses), seulement si elle dépasse `floor`.
   function topByPlayer(fn,floor){

@@ -31,7 +31,7 @@ function revealBlocks(view){
 }
 
 /* Chiffres qui défilent jusqu'à leur valeur (seulement les nombres entiers simples) */
-const COUNT_SEL='.kpi-val,.profile-kpis b,.leader-val,.pc-stats b,.mvp-ga b,.hh-sub b,.duo-count,.record-val';
+const COUNT_SEL='.kpi-val,.profile-kpis b,.leader-val,.pc-stats b,.hh-sub b,.duo-count,.record-val';
 function countUp(view){
   if(REDUCED_MOTION) return;
   view.querySelectorAll(COUNT_SEL).forEach(el=>{

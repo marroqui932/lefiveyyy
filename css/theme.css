@@ -127,18 +127,14 @@ body::before{content:"";position:fixed;inset:-20% -10% auto -10%;height:90vh;poi
 @keyframes scorePop{from{transform:translateY(10px) scale(.85);opacity:0;}to{transform:none;opacity:1;}}
 @media(max-width:640px){.sb-score{font-size:40px;}.sb-score>span:not(.sep){min-width:50px;padding:4px 6px;}.sb-score .sep{padding:0 5px;}.sb-name{font-size:15px;white-space:nowrap;}.scoreboard{gap:8px;}}
 
-/* Homme du match : couronne dorée et reflet qui passe */
-.mvp-card{position:relative;padding:8px 12px 8px 8px;border-radius:14px;background:linear-gradient(90deg,rgba(245,197,66,.13),transparent 75%);overflow:hidden;flex:1;min-width:240px;}
-.mvp-card::after{content:"";position:absolute;top:0;bottom:0;width:60px;left:-80px;background:linear-gradient(90deg,transparent,rgba(255,230,150,.2),transparent);transform:skewX(-20deg);animation:shine 4.5s ease-in-out infinite;pointer-events:none;}
-@keyframes shine{0%,60%{left:-80px;}100%{left:110%;}}
-.mvp-ga{display:flex;flex-direction:column;align-items:center;margin-left:auto;}
-.mvp-ga b{font-size:32px;line-height:1;color:var(--gold);font-weight:800;}
-.mvp-ga span{font-size:10.5px;font-weight:700;color:var(--text-faint);letter-spacing:.06em;}
-.mvp-label .ic{animation:crown 3s ease-in-out infinite;}
-@keyframes crown{0%,100%{transform:rotate(-8deg);}50%{transform:rotate(8deg) translateY(-1px);}}
-.mvp-tag{display:inline-flex;align-items:center;gap:3px;padding:1px 6px;border-radius:5px;font-size:10.5px;font-weight:800;letter-spacing:.04em;color:#1a1300;background:var(--gold);vertical-align:2px;}
-.mvp-tag .ic{width:12px;height:12px;}
-.player-row.is-mvp{background:linear-gradient(90deg,rgba(245,197,66,.09),transparent);}
+/* Ex-aequo : tous les joueurs concernés, avatars empilés */
+.tied-stack .avatar{box-shadow:0 0 0 2px #0f2118;}
+.tied-stack .more-av{font-size:12px;font-weight:800;color:var(--text-dim);background:var(--surface-3);}
+.tied-names{margin-top:10px;font-weight:700;font-size:14.5px;line-height:1.4;}
+.tied-names a:hover{color:var(--primary);}
+.tied-names .sep{color:var(--text-faint);margin:0 1px;font-weight:400;}
+.tie-badge{margin-left:auto;white-space:nowrap;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;color:var(--primary);background:var(--primary-soft);}
+.rank-row.top{background:linear-gradient(90deg,rgba(245,197,66,.10),transparent 80%);}
 
 /* Buts (ballon blanc) et passes (rond vert) d'un joueur sur le match */
 .ga-pips{margin-left:auto;display:flex;gap:3px;flex-wrap:wrap;justify-content:flex-end;max-width:96px;}
@@ -175,7 +171,6 @@ body::before{content:"";position:fixed;inset:-20% -10% auto -10%;height:90vh;poi
 /* Classements : podium */
 .rank-row{transition:background .15s,transform .2s var(--ease);}
 .rank-row:hover{transform:translateX(3px);}
-.rank-row:has(.rank-medal.g){background:linear-gradient(90deg,rgba(245,197,66,.10),transparent 80%);}
 .rank-medal.g,.rank-medal.s,.rank-medal.b{font-size:20px;font-style:italic;font-weight:800;}
 
 /* Fil des buts : ligne de craie, le ballon tourne en arrivant */
@@ -206,3 +201,4 @@ body::before{content:"";position:fixed;inset:-20% -10% auto -10%;height:90vh;poi
   .reveal{opacity:1;transform:none;}
   body::before{animation:none;}
 }
+.leader-val{flex-shrink:0;}

@@ -63,18 +63,13 @@ function scoreboardHTML(fiveId){
     ${side('B',s.b)}
   </div>`;
 }
-function mvpLineHTML(fiveId){
-  const m=fiveMvp(fiveId); if(!m) return '';
-  const pl=getPlayer(m.playerId);
-  return `<div class="mvp-card" onclick="event.stopPropagation();navigate('player/${m.playerId}')">
-    ${avatarHTML(pl,44,'ring-gold')}
-    <div style="flex:1;min-width:0;">
-      <div class="mvp-label">${ic('crown')}Homme du match</div>
-      <div style="font-weight:700;font-size:15px;">${esc(playerName(pl))}</div>
-      <div class="page-sub" style="margin-top:0;">${plural(m.goals,'but')} · ${plural(m.assists,'passe')}${m.clutch? ` · ${m.clutch} clutch` : ''}</div>
-    </div>
-    <div class="mvp-ga"><b class="num">${m.goals+m.assists}</b><span>G+A</span></div>
-  </div>`;
+/* Joueurs ex-aequo : avatars empilés + tous les noms (aucun n'est choisi arbitrairement) */
+function avatarStackHTML(players,size){
+  size=size||40;
+  return `<div class="avatar-stack tied-stack">${players.slice(0,4).map(p=>avatarHTML(p,size)).join('')}${players.length>4? `<div class="avatar more-av" style="width:${size}px;height:${size}px;">+${players.length-4}</div>` : ''}</div>`;
+}
+function tiedNamesHTML(players){
+  return `<div class="tied-names">${players.map(p=>`<a href="#/player/${p.id}" onclick="event.stopPropagation()">${esc(playerName(p))}</a>`).join(' <span class="sep">·</span> ')}</div>`;
 }
 
 /* ============================================================
@@ -104,10 +99,10 @@ function resultsTickerHTML(){
   const done=fivesSorted().filter(f=>!isFutureFive(f) && goalsForFive(f.id).length).reverse().slice(0,10);
   if(done.length<2) return '';
   const items=done.map(f=>{
-    const sc=fiveScore(f.id), m=fiveMvp(f.id);
+    const sc=fiveScore(f.id);
     return `<span class="tk-item" onclick="navigate('five/${f.id}')"><span class="tk-num">#${pad2(fiveNumber(f.id))}</span>
       <span class="tk-score"><span class="a">${sc.a}</span> – <span class="b">${sc.b}</span></span>
-      ${m? `${ic('crown',14)}${esc(playerName(getPlayer(m.playerId)))}` : fmtDateShort(f.date)}</span><span class="tk-dot"></span>`;
+      ${fmtDateShort(f.date)}${f.location? ' · '+esc(f.location) : ''}</span><span class="tk-dot"></span>`;
   }).join('');
   return `<div class="ticker" aria-label="Derniers résultats"><div class="ticker-track" style="--tk-dur:${done.length*5}s">${items}${items}</div></div>`;
 }
@@ -116,30 +111,23 @@ function viewDashboard(){
   const played=fivesSorted().filter(f=>!isFutureFive(f));
   const recentFives=fivesSorted().reverse().slice(0,6);
   const avgGoals= s.totalFives? (s.totalGoals/s.totalFives) : 0;
-  const lastMvp= s.lastFive? fiveMvp(s.lastFive.id) : null;
-  const inForm=playerInForm();
-  const eloTop=eloRanking()[0];
+  const inForm=playersInForm();
 
-  const leader=(icon,title,entries,unit)=>{
-    if(!entries || !entries.length) return `<div class="card"><div class="card-title">${ic(icon)}${title}</div><div class="page-sub">Pas encore de données</div></div>`;
-    const e=entries[0];
-    const tie=entries.length>1;
-    return `<div class="card card-link" onclick="navigate('${tie? 'rankings' : 'player/'+e.player.id}')">
-      <div class="card-title">${ic(icon)}${title}</div>
+  // Leader d'une catégorie : en cas d'égalité, tous les joueurs concernés sont affichés
+  const leader=(icon,title,players,value,unit,sub)=>{
+    if(!players || !players.length) return `<div class="card"><div class="card-title">${ic(icon)}${title}</div><div class="page-sub">Pas encore de données</div></div>`;
+    const tie=players.length>1;
+    return `<div class="card card-link" onclick="navigate('${tie? 'rankings' : 'player/'+players[0].id}')">
+      <div class="card-title">${ic(icon)}${title}${tie? `<span class="tie-badge">${players.length} ex-aequo</span>` : ''}</div>
       <div class="leader">
-        ${avatarHTML(e.player,44)}
-        <div style="min-width:0;">
-          <div class="leader-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(e.player.name)}${tie? ` <span class="page-sub">+${entries.length-1}</span>` : ''}</div>
-          ${tie? `<div class="page-sub" style="margin-top:0;font-size:12px;">${entries.length} à égalité</div>` : ''}
-        </div>
-        <div class="leader-val">${e.value}<small>${unit}</small></div>
+        ${avatarStackHTML(players,tie?36:44)}
+        <div class="leader-val">${value}<small>${unit}</small></div>
       </div>
+      ${tiedNamesHTML(players)}
+      ${sub? `<div class="page-sub" style="margin-top:8px;">${sub}</div>` : ''}
     </div>`;
   };
-  const spotlight=(icon,title,player,line,right)=>`<div class="card card-link" onclick="navigate('player/${player.id}')">
-    <div class="card-title">${ic(icon)}${title}</div>
-    <div class="leader">${avatarHTML(player,44)}<div style="min-width:0;"><div class="leader-name">${esc(player.name)}</div><div class="page-sub" style="margin-top:0;">${line}</div></div><div style="margin-left:auto;">${right}</div></div>
-  </div>`;
+  const lead=(entries,icon,title,unit)=>leader(icon,title,(entries||[]).map(e=>e.player),entries&&entries.length? entries[0].value : 0,unit);
 
   return `
   ${homeHeroHTML(s)}
@@ -159,7 +147,7 @@ function viewDashboard(){
       ${matchMetaHTML(s.lastFive)}
     </div>
     ${scoreboardHTML(s.lastFive.id)}
-    ${lastMvp? `<div class="match-hero-foot">${mvpLineHTML(s.lastFive.id)}<span class="btn btn-ghost btn-sm">Feuille de match ${ic('arrowRight')}</span></div>` : ''}
+    <div class="match-hero-foot"><span class="page-sub" style="margin:0;">${plural(goalsForFive(s.lastFive.id).length,'but')} · ${plural(participationsForFive(s.lastFive.id).length,'joueur')}</span><span class="btn btn-ghost btn-sm">Feuille de match ${ic('arrowRight')}</span></div>
   </div>` : emptyState('pitch','Aucun match joué pour le moment')}
 
   <div class="kpis" style="margin-top:14px;">
@@ -171,14 +159,12 @@ function viewDashboard(){
 
   ${sectionTitle('trophy','Leaders',`<a class="more" href="#/rankings">Classements ${ic('arrowRight',14)}</a>`)}
   <div class="grid grid-3">
-    ${leader('ball','Meilleur buteur', s.topScorer, 'buts')}
-    ${leader('target','Meilleur passeur', s.topAssister, 'passes')}
-    ${leader('star','Plus décisif (G+A)', s.topGA, 'G+A')}
+    ${lead(s.topScorer,'ball','Meilleur buteur','buts')}
+    ${lead(s.topAssister,'target','Meilleur passeur','passes')}
+    ${lead(s.topGA,'star','Plus décisif (G+A)','G+A')}
   </div>
-  ${(inForm||eloTop)? `<div class="grid grid-3" style="margin-top:14px;">
-    ${inForm? spotlight('flame','En forme', inForm.player, `sur ses ${inForm.n} derniers matchs`, `<span class="leader-val">${inForm.ga}<small>G+A</small></span>`) : ''}
-    ${eloTop? spotlight('gauge','N°1 Elo', eloTop.player, `${Math.round(eloTop.value)} points`, '') : ''}
-    ${(()=>{ const m=mvpRanking(); const top=m.filter(r=>r.rank===1); return top.length? spotlight('crown','Homme du match', top[0].player, top.length>1? `${top.length} à égalité` : 'le plus souvent', `<span class="leader-val">${top[0].value}<small>${top[0].value>1?'titres':'titre'}</small></span>`) : ''; })()}
+  ${inForm.length? `<div class="grid grid-3" style="margin-top:14px;">
+    ${leader('flame','En forme',inForm.map(r=>r.player),inForm[0].ga,'G+A','sur leurs 3 derniers matchs joués')}
   </div>` : ''}
 
   ${sectionTitle('history','Derniers matchs',`<a class="more" href="#/five">Tout voir ${ic('arrowRight',14)}</a>`)}
@@ -209,13 +195,12 @@ function fiveCardHTML(f){
     </div>`;
   }
   const s=fiveScore(f.id);
-  const m=fiveMvp(f.id);
   return `<div class="five-card" onclick="navigate('five/${f.id}')">
     ${head}
     <div class="fc-row ${s.a<s.b?'lose':''}"><span class="sb-dot a"></span>Équipe A<span class="fc-score">${s.a}</span></div>
     <div class="fc-row ${s.b<s.a?'lose':''}"><span class="sb-dot b"></span>Équipe B<span class="fc-score">${s.b}</span></div>
     <div class="fc-foot">
-      ${m? `<span class="five-mvp">${ic('crown')}${esc(playerName(getPlayer(m.playerId)))}</span>` : `<span>${ic('ball')}${plural(goals.length,'but')}</span>`}
+      <span>${ic('ball')}${plural(goals.length,'but')}</span>
       <span>${ic('users')}${parts.length}</span>
     </div>
   </div>`;
@@ -244,15 +229,14 @@ function viewFiveDetail(fiveId){
 
   function teamColumn(rows,team){
     const ga=(p)=>{ const s=playerStatsForFive(p.playerId,fiveId); return s.goals+s.assists; };
-    const sorted=rows.slice().sort((a,b)=>isMvpOfFive(b.playerId,fiveId)-isMvpOfFive(a.playerId,fiveId) || ga(b)-ga(a) || playerName(a.player).localeCompare(playerName(b.player)));
+    const sorted=rows.slice().sort((a,b)=>ga(b)-ga(a) || playerName(a.player).localeCompare(playerName(b.player)));
     return `<div class="team-col">
       <div class="team-col-head badge-${team.toLowerCase()}"><span style="display:inline-flex;align-items:center;gap:8px;"><span class="sb-dot ${team.toLowerCase()}"></span>Équipe ${team}</span><span class="page-sub">${plural(rows.length,'joueur')}</span></div>
       ${sorted.length? sorted.map(p=>{
         const st=playerStatsForFive(p.playerId, fiveId);
-        const mvp=isMvpOfFive(p.playerId, fiveId);
-        return `<div class="player-row${mvp?' is-mvp':''}" onclick="navigate('player/${p.playerId}')">
-          ${avatarHTML(p.player,38,mvp?'ring-gold':'')}
-          <div style="min-width:0;"><div class="pname">${esc(playerName(p.player))}${mvp? ` <span class="mvp-tag">${ic('crown',13)}MVP</span>` : ''}</div>
+        return `<div class="player-row" onclick="navigate('player/${p.playerId}')">
+          ${avatarHTML(p.player,38)}
+          <div style="min-width:0;"><div class="pname">${esc(playerName(p.player))}</div>
             <div class="psub">${st.goals? plural(st.goals,'but') : ''}${st.goals&&st.assists? ' · ' : ''}${st.assists? plural(st.assists,'passe') : ''}${st.ownGoals? ` · ${st.ownGoals} csc` : ''}${!st.goals&&!st.assists&&!st.ownGoals? '–' : ''}</div></div>
           <div class="ga-pips" title="Rond plein : but · rond vide : passe décisive">${'<i class="pip-g"></i>'.repeat(Math.min(st.goals,8))}${'<i class="pip-a"></i>'.repeat(Math.min(st.assists,8))}</div>
         </div>`;
@@ -275,7 +259,6 @@ function viewFiveDetail(fiveId){
     <div class="match-hero-head">${matchMetaHTML(five)}</div>
     ${future? `<div class="notice" style="margin:0;">${ic('info')}<div><b>Ce five n'a pas encore eu lieu.</b> Les équipes sont déjà connues ci-dessous. Après le match, ajoute les buts : score et stats se calculent tout seuls.</div></div>`
       : scoreboardHTML(fiveId)}
-    ${!future && fiveMvp(fiveId)? `<div class="match-hero-foot">${mvpLineHTML(fiveId)}</div>` : ''}
   </div>
 
   ${sectionTitle('users','Compositions','<span class="count">triées par buts + passes</span>')}
@@ -336,7 +319,7 @@ function viewPlayerList(){
         <div><b>${fs.goals}</b><span>Buts</span></div>
         <div><b>${fs.assists}</b><span>Passes</span></div>
         <div><b>${fs.winPct===null?'–':fs.winPct+'%'}</b><span>Vict.</span></div>
-        <div><b>${fm.mvpCount}</b><span>MVP</span></div>
+        <div><b>${fs.ga}</b><span>G+A</span></div>
       </div>
     </div>`;
   }).join('')}</div>
@@ -348,16 +331,16 @@ function recordIcon(icon,colorKey){
   const c=STAT_COLORS[colorKey]||STAT_COLORS.gold;
   return `<div class="record-icon" style="--stat-color:${c.color};">${ic(icon)}</div>`;
 }
-function personalRecordRow(icon,label,value,five,unit,colorKey){
+function personalRecordRow(icon,label,value,fives,unit,colorKey){
   if(!value || value<=0){
     return `<div class="record-row"><div class="record-label">${recordIcon(icon,colorKey)}${label}</div><div class="page-sub">Aucune donnée</div></div>`;
   }
   return `<div class="record-row">
     <div class="record-label">${recordIcon(icon,colorKey)}${label}</div>
     <div class="record-right">
-      ${five? `<div class="record-holders"><div class="record-holder" onclick="navigate('five/${five.id}')" style="padding-left:10px;">
+      ${fives&&fives.length? `<div class="record-holders">${fives.map(five=>`<div class="record-holder" onclick="navigate('five/${five.id}')" style="padding-left:10px;">
         <div class="rh-info"><div class="rh-name">${fiveTitle(five.id)}</div><div class="rh-five">${fmtDateShort(five.date)}</div></div>
-      </div></div>` : ''}
+      </div>`).join('')}</div>` : ''}
       <div class="record-val">${value}<span class="record-unit">${unit}</span></div>
     </div>
   </div>`;
@@ -383,7 +366,6 @@ function viewPlayerProfile(playerId){
   const fm=playerForm(playerId);
   const rivals=nemesisAndFavoriteTarget(playerId);
   const mates=bestAndWorstTeammates(playerId);
-  const elo=eloHistory(), eloRank=eloRanking().find(r=>r.player.id===playerId);
   const sign=(v,d)=>(v>0?'+':'')+v.toFixed(d).replace('.',',');
 
   // Buts, CSC et passes du joueur (plus récent en premier)
@@ -418,7 +400,6 @@ function viewPlayerProfile(playerId){
     : fm.unbeatenStreak.current>=2? `${ic('shield')}${fm.unbeatenStreak.current} matchs sans défaite`
     : fm.lossStreak.current>=2? `${ic('alert')}${fm.lossStreak.current} défaites d'affilée`
     : fm.scoringStreak.current>=2? `${ic('ball')}Buteur lors des ${fm.scoringStreak.current} derniers matchs` : '';
-  const lastDelta=(elo.byPlayer[playerId]||[]).slice(-1)[0];
 
   const crit=(()=>{
     const mine=playerCriteriaRankings()[playerId];
@@ -458,8 +439,7 @@ function viewPlayerProfile(playerId){
         <div><b>${fs.matches}</b><span>Matchs</span></div>
         <div><b>${fs.goals}</b><span>Buts</span></div>
         <div><b>${fs.assists}</b><span>Passes</span></div>
-        <div><b>${fm.mvpCount}</b><span>MVP</span></div>
-        <div><b>${elo.games[playerId]? Math.round(elo.rating[playerId]) : '–'}</b><span>Elo${eloRank? ' · #'+eloRank.rank : ''}</span></div>
+        <div><b>${fs.wins}</b><span>Victoires</span></div>
       </div>
     </div>
   </div>
@@ -472,7 +452,6 @@ function viewPlayerProfile(playerId){
     ${statChip('','Défaites', fs.losses)}
     ${statChip('','% victoires', fs.winPct===null?'–':fs.winPct+'%')}
     ${statChip('','Diff. buts / match', fm.avgPlusMinus===null?'–':sign(fm.avgPlusMinus,1))}
-    ${statChip('','Homme du match', fm.mvpCount)}
   </div></div>
   <div class="card" style="margin-top:14px;"><div class="stat-strip">
     ${statChip('','Buts / match', fmtNum(fs.avgGoals,2).replace('.',','))}
@@ -482,15 +461,13 @@ function viewPlayerProfile(playerId){
   </div></div>
   ${fs.withResult===0 ? `<div class="notice">${ic('info')}<div>Les équipes ne sont pas renseignées pour ses matchs : le résultat (victoire, nul, défaite) ne peut pas être calculé.</div></div>` : ''}
 
-  ${elo.games[playerId]? `
-  ${sectionTitle('trend','Forme et niveau')}
-  <div class="grid grid-2">
-    <div class="card form-card">
-      <div><div class="stat-label">G+A (5 derniers)</div><div class="fv">${fm.games.slice(-5).reduce((a,g)=>a+g.ga,0)}</div></div>
-      ${lastDelta? `<div><div class="stat-label">Dernier match (Elo)</div><div class="fv ${lastDelta.delta>=0?'trend-up':'trend-down'}">${(lastDelta.delta>=0?'+':'')+Math.round(lastDelta.delta)}</div></div>` : ''}
-      <div><div class="stat-label">Meilleure série</div><div class="fv">${fm.winStreak.best} <span class="page-sub" style="font-family:var(--font);font-size:12px;">victoire${fm.winStreak.best>1?'s':''}</span></div></div>
-    </div>
-    <div class="card chart-card"><div class="card-title" style="margin-bottom:4px;">${ic('trend')}Évolution de l'Elo</div>${eloChartSVG(playerId)}</div>
+  ${fm.games.length? `
+  ${sectionTitle('trend','Forme et séries')}
+  <div class="card form-card">
+    <div><div class="stat-label">G+A (5 derniers)</div><div class="fv">${fm.games.slice(-5).reduce((a,g)=>a+g.ga,0)}</div></div>
+    <div><div class="stat-label">Victoires d'affilée (record)</div><div class="fv">${fm.winStreak.best}</div></div>
+    <div><div class="stat-label">Sans défaite (record)</div><div class="fv">${fm.unbeatenStreak.best}</div></div>
+    <div><div class="stat-label">Buteur d'affilée (record)</div><div class="fv">${fm.scoringStreak.best}</div></div>
   </div>` : ''}
 
   ${crit}
@@ -506,13 +483,13 @@ function viewPlayerProfile(playerId){
 
   ${sectionTitle('history','Historique',`<span class="count">${fs.perFive.length}</span>`)}
   ${fs.perFive.slice().reverse().map(pf=>{
-    const s=fiveScore(pf.five.id), mvp=isMvpOfFive(playerId,pf.five.id);
+    const s=fiveScore(pf.five.id);
     const team=teamOfPlayerInFive(pf.five.id,playerId);
     return `<div class="tl-card" onclick="navigate('five/${pf.five.id}')">
       ${resultBadge(pf.result)}
       <div class="tl-five">${fiveTitle(pf.five.id)}<small>${fmtDateShort(pf.five.date)}</small></div>
       <div class="tl-score">${team? `<span class="sb-dot ${team.toLowerCase()}" style="display:inline-block;margin-right:6px;"></span>` : ''}${s.a}–${s.b}</div>
-      <div class="tl-body"><div class="tl-assist" style="margin:0;">${plural(pf.goals,'but')} · ${plural(pf.assists,'passe')}${mvp? ` · <span class="mvp-tag">${ic('crown',13)}Homme du match</span>` : ''}</div></div>
+      <div class="tl-body"><div class="tl-assist" style="margin:0;">${plural(pf.goals,'but')} · ${plural(pf.assists,'passe')}</div></div>
     </div>`;
   }).join('')}
 
@@ -577,13 +554,11 @@ function viewRankings(){
     ${rankCard('star','Décisifs (G+A)',gaList,{decimals:avg?2:0})}
     ${rankCard('check',avg?'% de victoires':'Victoires',winsList,{suffix:avg?'%':''})}
   </div>
-  ${sectionTitle('trend','Niveau et performances')}
+  ${sectionTitle('trend','Impact sur le score')}
   <div class="grid grid-3">
-    ${rankCard('gauge','Classement Elo',eloRanking())}
-    ${rankCard('crown','Hommes du match',mvpRanking())}
     ${rankCard('swap','Diff. de buts / match',plusMinusRanking(),{fmt:v=>(v>0?'+':'')+v.toFixed(1).replace('.',',')})}
   </div>
-  <div class="hint"><b>Homme du match</b> : le joueur le plus décisif du match (buts, passes, buts clutch, résultat). <b>Elo</b> : niveau qui monte quand ton équipe gagne (surtout contre plus fort) et baisse quand elle perd (départ ${ELO_START}). Différence de buts : joueurs ayant disputé au moins ${Math.round(AVG_MIN_PARTICIPATION*100)}% des matchs.</div>
+  <div class="hint"><b>Différence de buts / match</b> : écart moyen au score final quand il joue (+3 = son équipe gagne de 3 buts en moyenne), pour les joueurs ayant disputé au moins ${Math.round(AVG_MIN_PARTICIPATION*100)}% des matchs. Les ex-aequo ont le même rang.</div>
   `;
 }
 function rankListHTML(rows,decimals,suffix,fmt,limit){
@@ -592,7 +567,7 @@ function rankListHTML(rows,decimals,suffix,fmt,limit){
   return `<div class="rank-list">${shown.map(r=>{
     const medalClass= r.rank===1?'g' : r.rank===2?'s' : r.rank===3?'b' : '';
     const ring= r.rank===1?'ring-gold' : '';
-    return `<div class="rank-row" onclick="navigate('player/${r.player.id}')">
+    return `<div class="rank-row${r.rank===1?' top':''}" onclick="navigate('player/${r.player.id}')">
       <div class="rank-medal ${medalClass}">${r.rank}</div>
       ${avatarHTML(r.player,30,ring)}
       <div class="rank-name">${esc(r.player.name)}</div>
@@ -630,8 +605,9 @@ function viewDuos(){
 function duoTogetherSectionHTML(){
   const pairs=pairTogetherStats().filter(p=>p.matches>=PAIR_MIN_MATCHES);
   if(!pairs.length) return '';
-  const best=pairs.slice().sort((a,b)=>b.ppm-a.ppm || b.matches-a.matches).slice(0,6);
-  const worst=pairs.slice().sort((a,b)=>a.ppm-b.ppm || b.matches-a.matches).slice(0,6);
+  const topWithTies=(arr,key,n)=>arr.length<=n? arr : arr.filter(x=>key(x)>=key(arr[n-1]));
+  const best=topWithTies(pairs.slice().sort((a,b)=>b.ppm-a.ppm || b.matches-a.matches),p=>p.ppm,6);
+  const worst=topWithTies(pairs.slice().sort((a,b)=>a.ppm-b.ppm || b.matches-a.matches),p=>-p.ppm,6);
   const rowHTML=(p)=>{
     const a=getPlayer(p.a), b=getPlayer(p.b);
     return `<div class="rank-row" style="cursor:default;">
@@ -720,7 +696,7 @@ function viewCompare(idA,idB){
     ${STATE.players.length<2? emptyState('users','Il faut au moins 2 joueurs pour comparer') : ''}`;
   }
   const fsA=playerFullStats(a.id), fsB=playerFullStats(b.id);
-  const fA=playerForm(a.id), fB=playerForm(b.id), elo=eloHistory();
+  const fA=playerForm(a.id), fB=playerForm(b.id);
   const h2hA=headToHeadStats(a.id).find(h=>h.opponentId===b.id);
   const together=teammateStats(a.id).find(m=>m.mateId===b.id);
   return `
@@ -740,13 +716,11 @@ function viewCompare(idA,idB){
         ${compareBar('Passes décisives', fsA.assists, fsB.assists)}
         ${compareBar('G+A', fsA.ga, fsB.ga)}
         ${compareBar('Victoires', fsA.wins, fsB.wins)}
-        ${compareBar('Hommes du match', fA.mvpCount, fB.mvpCount)}
       </div>
     </div>
     <div>
-      ${sectionTitle('trend','Niveau et moyennes')}
+      ${sectionTitle('trend','Moyennes')}
       <div class="card">
-        ${compareBar('Elo', elo.rating[a.id]||ELO_START, elo.rating[b.id]||ELO_START, 0)}
         ${compareBar('Buts / match', fsA.avgGoals, fsB.avgGoals, 2)}
         ${compareBar('G+A / match', fsA.avgGA, fsB.avgGA, 2)}
         ${compareBar('% victoires', fsA.winPct||0, fsB.winPct||0, 0, '%')}
@@ -808,8 +782,6 @@ function viewRecords(){
     ${row('target','Total de passes', rec.mostTotalAssists,'passe','passes','blue')}
     ${row('star','Total G+A', rec.mostTotalGA,'G+A','G+A','purple')}
     ${row('pitch','Matchs joués', rec.mostFivesPlayed,'match','matchs','gold')}
-    ${row('crown','Titres d\'homme du match', rec.mostMvp,'titre','titres','gold')}
-    ${row('gauge','Elo le plus haut atteint', rec.peakElo,'pts','pts','purple')}
   </div>
   ${sectionTitle('flame','Séries')}
   <div class="card records-card">
