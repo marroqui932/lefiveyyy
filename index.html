@@ -15,28 +15,33 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,700;1,800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css">
 <link rel="stylesheet" href="css/theme.css">
+<link rel="stylesheet" href="css/broadcast.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
 
-<aside class="side-nav" aria-label="Navigation principale">
+<header class="side-nav" aria-label="Navigation principale">
   <a href="#/dashboard" class="brand">
-    <span class="brand-mark"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m12 7.5 4.2 3-1.6 5h-5.2l-1.6-5z"/></svg></span>
+    <span class="brand-mark"><img src="favicon.svg" alt="" width="38" height="38"></span>
     <span class="brand-text">LeFiveyyy</span>
   </a>
   <nav class="side-links" id="navDesktop"></nav>
   <div class="side-foot" id="authControl"></div>
-</aside>
+</header>
 
 <header class="top-bar">
   <a href="#/dashboard" class="brand">
-    <span class="brand-mark"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m12 7.5 4.2 3-1.6 5h-5.2l-1.6-5z"/></svg></span>
+    <span class="brand-mark"><img src="favicon.svg" alt="" width="30" height="30"></span>
     <span class="top-title" id="mobilePageTitle">LeFiveyyy</span>
   </a>
   <div id="authControlMobile"></div>
 </header>
 
 <main id="view" tabindex="-1"></main>
+
+<!-- Habillage TV : bandeau défilant des scores et logo de la chaîne -->
+<div class="ticker-bar" id="tickerBar" aria-label="Derniers résultats"></div>
+<a href="#/dashboard" class="channel-bug" aria-hidden="true" tabindex="-1"><img src="favicon.svg" alt="" width="22" height="22"><span>LeFiveyyy</span><i></i></a>
 
 <nav class="tab-bar" id="tabBar" aria-label="Navigation"></nav>
 <div class="sheet-backdrop" id="sheetBackdrop"></div>

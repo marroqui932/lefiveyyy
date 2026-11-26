@@ -75,107 +75,134 @@ function tiedNamesHTML(players){
 /* ============================================================
    ACCUEIL
    ============================================================ */
-/* Lignes d'un terrain de five vu de haut (craie), en fond du grand bandeau */
+/* Lignes d'un terrain de five vu de haut (craie). Horizontal (ordinateur) et vertical (mobile). */
 const PITCH_LINES_SVG=`<svg viewBox="0 0 300 160" preserveAspectRatio="none" fill="none" stroke="currentColor" stroke-width="1.2">
   <rect x="1" y="1" width="298" height="158" rx="3"/><path d="M150 1v158"/><circle cx="150" cy="80" r="22"/><circle cx="150" cy="80" r="1.6" fill="currentColor"/>
   <path d="M1 45h34v70H1M299 45h-34v70h34"/><path d="M1 66v28M299 66v28" stroke-width="3"/></svg>`;
-function homeHeroHTML(s){
-  return `<section class="home-hero">
-    <div class="hh-lines">${PITCH_LINES_SVG}</div>
-    <div class="hh-ball">${BALL_SVG}</div>
-    <div class="hh-content">
-      <div class="eyebrow">Nos five, en chiffres</div>
-      <h1>LeFive<span>yyy</span></h1>
-      <div class="hh-sub"><span><b>${s.totalFives}</b>five joués</span><span><b>${s.totalGoals}</b>buts</span><span><b>${s.totalPlayers}</b>joueurs</span></div>
-      <div class="hh-actions">
-        <a href="#/five" class="btn btn-primary">${ic('pitch')}Tous les matchs</a>
-        <a href="#/rankings" class="btn btn-ghost">${ic('trophy')}Classements</a>
+const PITCH_LINES_V_SVG=`<svg viewBox="0 0 160 300" preserveAspectRatio="none" fill="none" stroke="currentColor" stroke-width="1.2">
+  <rect x="1" y="1" width="158" height="298" rx="3"/><path d="M1 150h158"/><circle cx="80" cy="150" r="22"/><circle cx="80" cy="150" r="1.6" fill="currentColor"/>
+  <path d="M45 1v34h70V1M45 299v-34h70v34"/><path d="M66 1h28M66 299h28" stroke-width="3"/></svg>`;
+
+/* Bandeau défilant en bas d'écran, façon chaîne d'info sport (contenu doublé pour boucler sans à-coup) */
+function tickerBarHTML(){
+  const done=fivesSorted().filter(f=>!isFutureFive(f) && goalsForFive(f.id).length).reverse().slice(0,8);
+  if(!done.length) return '';
+  const s=dashboardStats();
+  const names=(entries)=>entries.map(e=>esc(playerName(e.player))).join(', ');
+  const items=[];
+  done.forEach(f=>{
+    const sc=fiveScore(f.id);
+    items.push(`<a class="tk-item" href="#/five/${f.id}"><span class="tk-num">#${pad2(fiveNumber(f.id))}</span><span class="tk-score"><span class="a">${sc.a}</span><span class="tk-dash">-</span><span class="b">${sc.b}</span></span>${fmtDateShort(f.date)}</a>`);
+  });
+  if(s.topScorer.length) items.push(`<a class="tk-item" href="#/rankings"><span class="tk-tag">Buteur${s.topScorer.length>1?'s':''}</span>${names(s.topScorer)} · ${s.topScorer[0].value}</a>`);
+  if(s.topAssister.length) items.push(`<a class="tk-item" href="#/rankings"><span class="tk-tag">Passeur${s.topAssister.length>1?'s':''}</span>${names(s.topAssister)} · ${s.topAssister[0].value}</a>`);
+  if(s.nextFive) items.push(`<a class="tk-item" href="#/five/${s.nextFive.id}"><span class="tk-tag live">Prochain five</span>${fmtDateLong(s.nextFive.date)}${s.nextFive.timeStart? ' · '+s.nextFive.timeStart : ''}</a>`);
+  const row=items.join('<span class="tk-dot"></span>')+'<span class="tk-dot"></span>';
+  return `<div class="tk-label">${ic('ball',14)}Résultats</div><div class="tk-viewport"><div class="ticker-track" style="--tk-dur:${items.length*6}s">${row}${row}</div></div>`;
+}
+
+/* En-tête "plateau TV" de l'accueil */
+function studioHeaderHTML(s){
+  return `<section class="studio">
+    <div class="studio-lines">${PITCH_LINES_SVG}</div>
+    <div class="studio-ball">${BALL_SVG}</div>
+    <div class="studio-main">
+      <img class="studio-crest" src="favicon.svg" alt="">
+      <div>
+        <div class="eyebrow">La ligue de nos five</div>
+        <h1>LeFive<span>yyy</span></h1>
       </div>
+    </div>
+    <div class="studio-stats">
+      <div><b class="num">${s.totalFives}</b><span>five joués</span></div>
+      <div><b class="num">${s.totalGoals}</b><span>buts</span></div>
+      <div><b class="num">${s.totalAssists}</b><span>passes déc.</span></div>
+      <div><b class="num">${STATE.players.filter(p=>playerFullStats(p.id).matches>0).length}</b><span>joueurs</span></div>
     </div>
   </section>`;
 }
-/* Bandeau défilant des derniers scores (contenu doublé pour une boucle sans à-coup) */
-function resultsTickerHTML(){
-  const done=fivesSorted().filter(f=>!isFutureFive(f) && goalsForFive(f.id).length).reverse().slice(0,10);
-  if(done.length<2) return '';
-  const items=done.map(f=>{
-    const sc=fiveScore(f.id);
-    return `<span class="tk-item" onclick="navigate('five/${f.id}')"><span class="tk-num">#${pad2(fiveNumber(f.id))}</span>
-      <span class="tk-score"><span class="a">${sc.a}</span> – <span class="b">${sc.b}</span></span>
-      ${fmtDateShort(f.date)}${f.location? ' · '+esc(f.location) : ''}</span><span class="tk-dot"></span>`;
-  }).join('');
-  return `<div class="ticker" aria-label="Derniers résultats"><div class="ticker-track" style="--tk-dur:${done.length*5}s">${items}${items}</div></div>`;
+function nextMatchCardHTML(f){
+  if(!f) return `<div class="bc-card next-card empty">
+    <div class="bc-tag">${ic('calendar',14)}Prochain match</div>
+    <div class="next-none">Aucun five programmé</div>
+    ${isAdmin()? `<button class="btn btn-primary btn-sm" onclick="openFiveForm()">${ic('plus')}Programmer un five</button>` : `<div class="page-sub">Il apparaîtra ici dès qu'il sera ajouté.</div>`}
+  </div>`;
+  const start=f.date+'T'+(f.timeStart||'20:00')+':00';
+  const parts=participationsForFive(f.id);
+  return `<div class="bc-card next-card card-link" onclick="navigate('five/${f.id}')">
+    <div class="bc-tag live"><i class="live-dot"></i>Prochain match</div>
+    <div class="next-title">${fiveTitle(f.id)}</div>
+    <div class="countdown" data-countdown="${start}">
+      <div><b class="num" data-u="d">–</b><span>jours</span></div><div><b class="num" data-u="h">–</b><span>h</span></div>
+      <div><b class="num" data-u="m">–</b><span>min</span></div><div><b class="num" data-u="s">–</b><span>s</span></div>
+    </div>
+    ${matchMetaHTML(f)}
+    <div class="next-foot">${parts.length? `${avatarStackHTML(parts.map(p=>getPlayer(p.playerId)).filter(Boolean),28)}<span>${plural(parts.length,'inscrit')}</span>` : '<span>Équipes pas encore faites</span>'}</div>
+  </div>`;
+}
+function lastMatchCardHTML(f){
+  if(!f) return `<div class="bc-card">${emptyState('pitch','Aucun match joué pour le moment')}</div>`;
+  const goals=goalsForFive(f.id);
+  return `<div class="bc-card last-card match-hero card-link" onclick="navigate('five/${f.id}')">
+    <div class="last-head"><div class="bc-tag">${ic('history',14)}Dernier match · ${fiveTitle(f.id)}</div>${matchMetaHTML(f)}</div>
+    ${scoreboardHTML(f.id)}
+    <div class="match-hero-foot"><span class="page-sub" style="margin:0;">${plural(goals.length,'but')} · ${plural(participationsForFive(f.id).length,'joueur')}</span><span class="btn btn-ghost btn-sm">Feuille de match ${ic('arrowRight')}</span></div>
+  </div>`;
 }
 function viewDashboard(){
   const s=dashboardStats();
   const played=fivesSorted().filter(f=>!isFutureFive(f));
-  const recentFives=fivesSorted().reverse().slice(0,6);
+  const recentFives=played.slice().reverse().slice(0,6);
   const avgGoals= s.totalFives? (s.totalGoals/s.totalFives) : 0;
   const inForm=playersInForm();
 
   // Leader d'une catégorie : en cas d'égalité, tous les joueurs concernés sont affichés
   const leader=(icon,title,players,value,unit,sub)=>{
-    if(!players || !players.length) return `<div class="card"><div class="card-title">${ic(icon)}${title}</div><div class="page-sub">Pas encore de données</div></div>`;
+    if(!players || !players.length) return `<div class="bc-card leader-card"><div class="bc-tag">${ic(icon,14)}${title}</div><div class="page-sub">Pas encore de données</div></div>`;
     const tie=players.length>1;
-    return `<div class="card card-link" onclick="navigate('${tie? 'rankings' : 'player/'+players[0].id}')">
-      <div class="card-title">${ic(icon)}${title}${tie? `<span class="tie-badge">${players.length} ex-aequo</span>` : ''}</div>
+    return `<div class="bc-card leader-card card-link" onclick="navigate('${tie? 'rankings' : 'player/'+players[0].id}')">
+      <div class="bc-tag">${ic(icon,14)}${title}${tie? `<span class="tie-badge">${players.length} ex-aequo</span>` : ''}</div>
       <div class="leader">
-        ${avatarStackHTML(players,tie?36:44)}
+        ${avatarStackHTML(players,tie?38:52)}
         <div class="leader-val">${value}<small>${unit}</small></div>
       </div>
       ${tiedNamesHTML(players)}
-      ${sub? `<div class="page-sub" style="margin-top:8px;">${sub}</div>` : ''}
+      ${sub? `<div class="page-sub" style="margin-top:6px;">${sub}</div>` : ''}
     </div>`;
   };
   const lead=(entries,icon,title,unit)=>leader(icon,title,(entries||[]).map(e=>e.player),entries&&entries.length? entries[0].value : 0,unit);
 
   return `
-  ${homeHeroHTML(s)}
-  ${resultsTickerHTML()}
+  ${studioHeaderHTML(s)}
 
-  ${s.nextFive? `
-  <div class="card card-link" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px;border-color:rgba(180,244,97,.3);" onclick="navigate('five/${s.nextFive.id}')">
-    <span class="badge badge-live">${ic('calendar')}Prochain match</span>
-    <b>${fiveTitle(s.nextFive.id)}</b>${matchMetaHTML(s.nextFive)}
-    <span style="margin-left:auto;color:var(--text-dim);display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:13px;">Voir les équipes ${ic('arrowRight',16)}</span>
-  </div>` : ''}
-
-  ${s.lastFive? `
-  <div class="match-hero card-link" onclick="navigate('five/${s.lastFive.id}')">
-    <div class="match-hero-head">
-      <div><div class="eyebrow">Dernier match</div><div style="font-weight:800;font-size:18px;margin-top:2px;">${fiveTitle(s.lastFive.id)}</div></div>
-      ${matchMetaHTML(s.lastFive)}
-    </div>
-    ${scoreboardHTML(s.lastFive.id)}
-    <div class="match-hero-foot"><span class="page-sub" style="margin:0;">${plural(goalsForFive(s.lastFive.id).length,'but')} · ${plural(participationsForFive(s.lastFive.id).length,'joueur')}</span><span class="btn btn-ghost btn-sm">Feuille de match ${ic('arrowRight')}</span></div>
-  </div>` : emptyState('pitch','Aucun match joué pour le moment')}
-
-  <div class="kpis" style="margin-top:14px;">
-    ${kpi('ball','Buts',s.totalGoals, played.length? `${avgGoals.toFixed(1).replace('.',',')} par match` : '')}
-    ${kpi('target','Passes décisives',s.totalAssists, s.totalGoals? `${Math.round(s.totalAssists/s.totalGoals*100)}% des buts` : '')}
-    ${kpi('pitch','Five joués',s.totalFives, s.bestFive&&s.bestFive.count? `Record : ${s.bestFive.count} buts` : '')}
-    ${kpi('users','Joueurs',s.totalPlayers, `${STATE.players.filter(p=>playerFullStats(p.id).matches>0).length} ont déjà joué`)}
+  <div class="home-top">
+    ${lastMatchCardHTML(s.lastFive)}
+    ${nextMatchCardHTML(s.nextFive)}
   </div>
 
-  ${sectionTitle('trophy','Leaders',`<a class="more" href="#/rankings">Classements ${ic('arrowRight',14)}</a>`)}
-  <div class="grid grid-3">
+  ${sectionTitle('trophy','Les leaders',`<a class="more" href="#/rankings">Classement complet ${ic('arrowRight',14)}</a>`)}
+  <div class="grid grid-4 leaders-grid">
     ${lead(s.topScorer,'ball','Meilleur buteur','buts')}
     ${lead(s.topAssister,'target','Meilleur passeur','passes')}
-    ${lead(s.topGA,'star','Plus décisif (G+A)','G+A')}
+    ${lead(s.topGA,'star','Plus décisif','G+A')}
+    ${inForm.length? leader('flame','En forme',inForm.map(r=>r.player),inForm[0].ga,'G+A','sur leurs 3 derniers matchs') : leader('flame','En forme',[],0,'')}
   </div>
-  ${inForm.length? `<div class="grid grid-3" style="margin-top:14px;">
-    ${leader('flame','En forme',inForm.map(r=>r.player),inForm[0].ga,'G+A','sur leurs 3 derniers matchs joués')}
-  </div>` : ''}
+
+  <div class="kpis" style="margin-top:14px;">
+    ${kpi('ball','Buts par match',avgGoals.toFixed(1).replace('.',','), played.length? `sur ${plural(played.length,'five')}` : '')}
+    ${kpi('target','Buts sur passe',s.totalGoals? Math.round(s.totalAssists/s.totalGoals*100)+'%' : '–', `${s.totalAssists} passes décisives`)}
+    ${kpi('flame','Plus gros score',s.bestFive&&s.bestFive.count? s.bestFive.count : '–', s.bestFive&&s.bestFive.count? `buts dans le ${fiveTitle(s.bestFive.five.id)}` : '')}
+    ${kpi('users','Effectif',s.totalPlayers, `${STATE.players.filter(p=>playerFullStats(p.id).matches>0).length} ont déjà joué`)}
+  </div>
 
   ${sectionTitle('history','Derniers matchs',`<a class="more" href="#/five">Tout voir ${ic('arrowRight',14)}</a>`)}
   ${recentFives.length? `<div class="grid grid-3">${recentFives.map(f=>fiveCardHTML(f)).join('')}</div>` : emptyState('pitch','Aucun match pour le moment')}
 
-  ${sectionTitle('map','Carte des tirs','<span class="count">tous les matchs, attaque vers le haut</span>')}
-  ${allFivesActionsMapHTML()}
-
-  ${sectionTitle('timer','Quand tombent les buts')}
-  <div class="card chart-card">${minuteHistogramSVG(playedGoalMinutes(),MINUTE_BIN)}</div>
-  <div class="hint">${playedGoalMinutes().length} but${playedGoalMinutes().length>1?'s':''} sur ${STATE.goals.length} ont une minute enregistrée.</div>
+  <div class="grid grid-2" style="margin-top:8px;">
+    <div>${sectionTitle('map','Carte des tirs','<span class="count">attaque vers le haut</span>')}${allFivesActionsMapHTML()}</div>
+    <div>${sectionTitle('timer','Quand tombent les buts')}<div class="card chart-card">${minuteHistogramSVG(playedGoalMinutes(),MINUTE_BIN)}</div>
+      <div class="hint">${playedGoalMinutes().length} but${playedGoalMinutes().length>1?'s':''} sur ${STATE.goals.length} ont une minute enregistrée.</div></div>
+  </div>
   `;
 }
 
@@ -227,23 +254,6 @@ function viewFiveDetail(fiveId){
   const list=fivesSorted(); const idx=list.findIndex(f=>f.id===fiveId);
   const prev=list[idx-1], next=list[idx+1];
 
-  function teamColumn(rows,team){
-    const ga=(p)=>{ const s=playerStatsForFive(p.playerId,fiveId); return s.goals+s.assists; };
-    const sorted=rows.slice().sort((a,b)=>ga(b)-ga(a) || playerName(a.player).localeCompare(playerName(b.player)));
-    return `<div class="team-col">
-      <div class="team-col-head badge-${team.toLowerCase()}"><span style="display:inline-flex;align-items:center;gap:8px;"><span class="sb-dot ${team.toLowerCase()}"></span>Équipe ${team}</span><span class="page-sub">${plural(rows.length,'joueur')}</span></div>
-      ${sorted.length? sorted.map(p=>{
-        const st=playerStatsForFive(p.playerId, fiveId);
-        return `<div class="player-row" onclick="navigate('player/${p.playerId}')">
-          ${avatarHTML(p.player,38)}
-          <div style="min-width:0;"><div class="pname">${esc(playerName(p.player))}</div>
-            <div class="psub">${st.goals? plural(st.goals,'but') : ''}${st.goals&&st.assists? ' · ' : ''}${st.assists? plural(st.assists,'passe') : ''}${st.ownGoals? ` · ${st.ownGoals} csc` : ''}${!st.goals&&!st.assists&&!st.ownGoals? '–' : ''}</div></div>
-          <div class="ga-pips" title="Rond plein : but · rond vide : passe décisive">${'<i class="pip-g"></i>'.repeat(Math.min(st.goals,8))}${'<i class="pip-a"></i>'.repeat(Math.min(st.assists,8))}</div>
-        </div>`;
-      }).join('') : '<div class="page-sub" style="padding:10px;">Aucun joueur</div>'}
-    </div>`;
-  }
-
   return `
   <div class="page-header">
     <div><a href="#/five" class="eyebrow" style="display:inline-flex;align-items:center;gap:6px;">${ic('arrowLeft',14)}Matchs</a><h1>${fiveTitle(fiveId)}${future? ' <span class="badge badge-live">À venir</span>' : ''}</h1></div>
@@ -261,11 +271,8 @@ function viewFiveDetail(fiveId){
       : scoreboardHTML(fiveId)}
   </div>
 
-  ${sectionTitle('users','Compositions','<span class="count">triées par buts + passes</span>')}
-  <div class="teams-grid">
-    ${teamColumn(teamA,'A')}
-    ${teamColumn(teamB,'B')}
-  </div>
+  ${sectionTitle('users','Compositions',future? '' : '<span class="count">les plus décisifs devant · rond plein = but, rond vide = passe</span>')}
+  ${lineupPitchHTML(fiveId,teamA,teamB)}
   ${noTeam.length? `<div class="notice">${ic('info')}<div>${noTeam.length} joueur(s) sans équipe : ${noTeam.map(p=>esc(playerName(p.player))).join(', ')}</div></div>` : ''}
 
   ${future? '' : `
@@ -298,6 +305,52 @@ function viewFiveDetail(fiveId){
   `;
 }
 
+/* Les joueurs placés sur un terrain, comme les compositions à la télé.
+   Équipe A à gauche (attaque vers la droite), équipe B à droite. Le plus décisif du match est le plus avancé.
+   Sur mobile, le terrain passe à la verticale (A en haut, B en bas). */
+function lineupColumns(n){
+  if(n<=0) return [];
+  if(n===1) return [1];
+  const cols=[1]; let left=n-1;
+  const per= n>8? 3 : 2;
+  while(left>0){ const k=Math.min(per,left); cols.push(k); left-=k; }
+  return cols;   // du plus reculé au plus avancé
+}
+function lineupPitchHTML(fiveId,teamA,teamB){
+  const ga=(p)=>{ const s=playerStatsForFive(p.playerId,fiveId); return s.goals*2+s.assists; };
+  const place=(rows,side)=>{
+    const sorted=rows.slice().sort((a,b)=>ga(b)-ga(a) || playerName(a.player).localeCompare(playerName(b.player)));
+    const cols=lineupColumns(sorted.length);
+    const out=[]; let k=0;
+    // On remplit en partant de la colonne la plus avancée
+    for(let c=cols.length-1;c>=0;c--){
+      const n=cols[c];
+      for(let j=0;j<n;j++){
+        const p=sorted[k++];
+        const depth= cols.length===1? 0.5 : c/(cols.length-1);
+        const x0= 9 + depth*34;                       // 9 % (au fond) -> 43 % (milieu de terrain)
+        const x= side==='a'? x0 : 100-x0;
+        const y= (j+1)/(n+1)*100;
+        out.push({p,x,y,i:k});
+      }
+    }
+    return out.map(({p,x,y,i})=>{
+      const st=playerStatsForFive(p.playerId,fiveId);
+      return `<a class="lu-player ${side}" href="#/player/${p.playerId}" style="--x:${x.toFixed(1)}%;--y:${y.toFixed(1)}%;--i:${i}">
+        ${avatarHTML(p.player,56)}
+        <span class="lu-name">${esc(playerName(p.player))}</span>
+        ${st.goals||st.assists? `<span class="ga-pips">${'<i class="pip-g"></i>'.repeat(Math.min(st.goals,8))}${'<i class="pip-a"></i>'.repeat(Math.min(st.assists,8))}</span>` : ''}
+      </a>`;
+    }).join('');
+  };
+  return `<div class="lineup">
+    <div class="lu-lines h">${PITCH_LINES_SVG}</div><div class="lu-lines v">${PITCH_LINES_V_SVG}</div>
+    <div class="lu-team-label a"><span class="sb-dot a"></span>Équipe A</div>
+    <div class="lu-team-label b">Équipe B<span class="sb-dot b"></span></div>
+    ${place(teamA,'a')}${place(teamB,'b')}
+  </div>`;
+}
+
 /* ============================================================
    JOUEURS
    ============================================================ */
@@ -310,16 +363,17 @@ function viewPlayerList(){
   ${pageHeader('Joueurs', plural(STATE.players.length,'joueur'),
     `<a href="#/compare" class="btn btn-ghost">${ic('scale')}Comparer</a>${isAdmin()? `<button class="btn btn-primary" onclick="openPlayerForm()">${ic('plus')}Ajouter</button>` : ''}`)}
   <div class="search-bar">${ic('search')}<input class="input" id="playerSearchInput" placeholder="Rechercher un joueur" autocomplete="off"></div>
-  ${list.length? `<div class="player-cards-grid">${list.map(p=>{
-    const fs=playerFullStats(p.id), fm=playerForm(p.id);
-    return `<div class="player-card" data-player-name="${esc(p.name.toLowerCase())}" onclick="navigate('player/${p.id}')">
-      <div class="pc-top">${avatarHTML(p,52)}<div style="min-width:0;"><div class="pc-name"><span>${esc(p.name)}</span>${p.country? flagImgHTML(p.country,16) : ''}</div>
-        <div class="page-sub" style="margin-top:2px;font-size:12px;">${fs.matches? plural(fs.matches,'match','matchs') : 'Pas encore joué'}</div></div></div>
-      <div class="pc-stats">
-        <div><b>${fs.goals}</b><span>Buts</span></div>
-        <div><b>${fs.assists}</b><span>Passes</span></div>
-        <div><b>${fs.winPct===null?'–':fs.winPct+'%'}</b><span>Vict.</span></div>
-        <div><b>${fs.ga}</b><span>G+A</span></div>
+  ${list.length? `<div class="tv-grid">${list.map(p=>{
+    const fs=playerFullStats(p.id);
+    return `<div class="tv-card" data-player-name="${esc(p.name.toLowerCase())}" onclick="navigate('player/${p.id}')">
+      <div class="tv-photo">${p.photo? `<img src="${p.photo}" alt="" loading="lazy" decoding="async">` : `<div class="tv-silhouette">${PLAYER_SILHOUETTE}</div>`}
+        <span class="tv-big num">${fs.goals}<small>buts</small></span></div>
+      <div class="tv-lower"><div class="tv-name">${esc(p.name)}</div>
+        <div class="tv-sub">${p.country? flagImgHTML(p.country,14) : ''}${fs.matches? plural(fs.matches,'match','matchs') : 'Pas encore joué'}</div></div>
+      <div class="tv-stats">
+        <div><b class="num">${fs.assists}</b><span>Passes</span></div>
+        <div><b class="num">${fs.ga}</b><span>G+A</span></div>
+        <div><b class="num">${fs.winPct===null?'–':fs.winPct+'%'}</b><span>Vict.</span></div>
       </div>
     </div>`;
   }).join('')}</div>
@@ -532,33 +586,49 @@ function viewPlayerProfile(playerId){
 /* ============================================================
    CLASSEMENTS
    ============================================================ */
-let rankingFilter='total';
-function rankCard(icon,title,rows,opts){
-  opts=opts||{};
-  return `<div class="card"><div class="card-title">${ic(icon)}${title}</div>${rankListHTML(rows,opts.decimals||0,opts.suffix||'',opts.fmt,opts.limit)}</div>`;
-}
+/* Classement façon tableau de championnat : on trie en cliquant sur une colonne.
+   Les ex-aequo sur la colonne triée ont le même rang. */
+const LEAGUE_COLS=[
+  {k:'matches', l:'MJ',     t:'Matchs joués'},
+  {k:'wins',    l:'V',      t:'Victoires'},
+  {k:'draws',   l:'N',      t:'Nuls'},
+  {k:'losses',  l:'D',      t:'Défaites', asc:true},
+  {k:'winPct',  l:'% V',    t:'Pourcentage de victoires', f:v=>v===null?'–':v+'%'},
+  {k:'goals',   l:'Buts',   t:'Buts'},
+  {k:'assists', l:'Passes', t:'Passes décisives'},
+  {k:'ga',      l:'G+A',    t:'Buts + passes décisives', main:true},
+  {k:'avgGA',   l:'G+A/m',  t:'Buts + passes par match', f:v=>fmtNum(v,2).replace('.',',')},
+  {k:'pm',      l:'Diff/m', t:'Écart moyen au score quand il joue', f:v=>v===null?'–':(v>0?'+':'')+v.toFixed(1).replace('.',',')}
+];
+let leagueSort='ga';
+function setLeagueSort(k){ leagueSort=k; render(); }
 function viewRankings(){
-  const avg=rankingFilter==='avg';
-  const filterOptions=[{v:'total',l:'Total'},{v:'avg',l:'Par match'}];
-  const scorers=rankPlayers('goals',rankingFilter);
-  const assisters=rankPlayers('assists',rankingFilter);
-  const gaList=rankPlayers('ga',rankingFilter);
-  const winsList=rankPlayers('wins',rankingFilter);
+  const col=LEAGUE_COLS.find(c=>c.k===leagueSort)||LEAGUE_COLS[7];
+  const rows=STATE.players.filter(p=>playerFullStats(p.id).matches>0).map(p=>{
+    const fs=playerFullStats(p.id), fm=playerForm(p.id);
+    return {player:p, fm, v:Object.assign({}, fs, {pm:fm.avgPlusMinus})};
+  });
+  const val=r=>{ const v=r.v[col.k]; return v===null||v===undefined? -Infinity : v; };
+  rows.sort((a,b)=> col.asc? val(a)-val(b) : val(b)-val(a) || b.v.ga-a.v.ga || a.player.name.localeCompare(b.player.name,'fr'));
+  let rank=0, prev;
+  rows.forEach((r,i)=>{ const v=Math.round(val(r)*100)/100; if(i===0||v!==prev){ rank=i+1; prev=v; } r.rank=rank; });
+  const medal=r=> r===1?'g':r===2?'s':r===3?'b':'';
   return `
-  ${pageHeader('Classements','Calculés automatiquement à partir de tous les matchs')}
-  <div class="seg">${filterOptions.map(o=>`<div class="pill ${o.v===rankingFilter?'active':''}" onclick="rankingFilter='${o.v}';render();">${o.l}</div>`).join('')}</div>
-  ${avg? `<div class="hint" style="margin:-8px 0 14px;">Moyennes : joueurs ayant disputé au moins ${Math.round(AVG_MIN_PARTICIPATION*100)}% des matchs.</div>` : ''}
-  <div class="grid grid-4">
-    ${rankCard('ball','Buteurs',scorers,{decimals:avg?2:0})}
-    ${rankCard('target','Passeurs',assisters,{decimals:avg?2:0})}
-    ${rankCard('star','Décisifs (G+A)',gaList,{decimals:avg?2:0})}
-    ${rankCard('check',avg?'% de victoires':'Victoires',winsList,{suffix:avg?'%':''})}
+  ${pageHeader('Classement','Clique sur une colonne pour trier · les ex-aequo ont le même rang')}
+  <div class="league-wrap">
+    <table class="league">
+      <thead><tr><th class="l-rank">#</th><th class="l-player">Joueur</th>
+        ${LEAGUE_COLS.map(c=>`<th class="${c.k===col.k?'sorted':''}${c.main?' main':''}" title="${c.t}" onclick="setLeagueSort('${c.k}')">${c.l}${c.k===col.k? `<i>${col.asc?'▲':'▼'}</i>` : ''}</th>`).join('')}
+        <th class="l-form">Forme</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr class="${r.rank===1?'top':''}" onclick="navigate('player/${r.player.id}')">
+        <td class="l-rank"><span class="rank-medal ${medal(r.rank)}">${r.rank}</span></td>
+        <td class="l-player"><div class="l-who">${avatarHTML(r.player,32)}<span>${esc(r.player.name)}</span></div></td>
+        ${LEAGUE_COLS.map(c=>`<td class="${c.k===col.k?'sorted':''}${c.main?' main':''}">${c.f? c.f(r.v[c.k]) : r.v[c.k]}</td>`).join('')}
+        <td class="l-form">${formChipsHTML(r.fm.last5)}</td>
+      </tr>`).join('')}</tbody>
+    </table>
   </div>
-  ${sectionTitle('trend','Impact sur le score')}
-  <div class="grid grid-3">
-    ${rankCard('swap','Diff. de buts / match',plusMinusRanking(),{fmt:v=>(v>0?'+':'')+v.toFixed(1).replace('.',',')})}
-  </div>
-  <div class="hint"><b>Différence de buts / match</b> : écart moyen au score final quand il joue (+3 = son équipe gagne de 3 buts en moyenne), pour les joueurs ayant disputé au moins ${Math.round(AVG_MIN_PARTICIPATION*100)}% des matchs. Les ex-aequo ont le même rang.</div>
+  <div class="hint">MJ : matchs joués · V/N/D : victoires, nuls, défaites · G+A : buts + passes décisives · Diff/m : écart moyen au score final quand il joue (+3 = son équipe gagne de 3 buts en moyenne). Les moyennes sur peu de matchs sont à prendre avec des pincettes.</div>
   `;
 }
 function rankListHTML(rows,decimals,suffix,fmt,limit){

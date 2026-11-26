@@ -116,6 +116,10 @@ async function render(){
     view.innerHTML=emptyState('alert','Une erreur est survenue',esc(err.message));
   }
   if(pageChanged){ window.scrollTo(0,0); animateView(view); }
+  // Bandeau défilant : on ne le remplace que s'il change (sinon le défilement repartirait de zéro)
+  const tk=document.getElementById('tickerBar');
+  try{ const html=tickerBarHTML(); if(tk.dataset.html!==html){ tk.innerHTML=html; tk.dataset.html=html; } document.body.classList.toggle('has-ticker',!!html); }catch(e){ console.error(e); }
+  startCountdowns(view);
   afterRenderHooks();
 }
 function afterRenderHooks(){

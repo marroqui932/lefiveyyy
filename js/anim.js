@@ -8,8 +8,8 @@ const REDUCED_MOTION=window.matchMedia && window.matchMedia('(prefers-reduced-mo
 
 /* Blocs qui apparaissent en glissant, l'un après l'autre */
 const REVEAL_SEL=[
-  '#view > *:not(.grid):not(.kpis):not(.player-cards-grid)',
-  '.grid > *','.kpis > .kpi','.player-cards-grid > *','.rank-row','.tl-card','.feed-row','.record-row','.duo-row','.admin-item'
+  '#view > *:not(.grid):not(.kpis):not(.player-cards-grid):not(.tv-grid):not(.home-top)',
+  '.grid > *','.kpis > .kpi','.player-cards-grid > *','.tv-grid > *','.home-top > *','.league tbody tr','.rank-row','.tl-card','.feed-row','.record-row','.duo-row','.admin-item'
 ].join(',');
 let _revealObserver=null;
 function revealBlocks(view){
@@ -31,7 +31,7 @@ function revealBlocks(view){
 }
 
 /* Chiffres qui défilent jusqu'à leur valeur (seulement les nombres entiers simples) */
-const COUNT_SEL='.kpi-val,.profile-kpis b,.leader-val,.pc-stats b,.hh-sub b,.duo-count,.record-val';
+const COUNT_SEL='.kpi-val,.profile-kpis b,.leader-val,.studio-stats b,.tv-big,.tv-stats b,.duo-count,.record-val,.league td.main';
 function countUp(view){
   if(REDUCED_MOTION) return;
   view.querySelectorAll(COUNT_SEL).forEach(el=>{
@@ -55,6 +55,22 @@ function countUp(view){
 function animateView(view){
   revealBlocks(view);
   countUp(view);
+}
+
+/* Compte à rebours du prochain match (mis à jour chaque seconde, arrêté au rendu suivant) */
+let _countdownTimer=null;
+function startCountdowns(view){
+  clearInterval(_countdownTimer);
+  const els=[...view.querySelectorAll('[data-countdown]')];
+  if(!els.length) return;
+  const tick=()=>els.forEach(el=>{
+    let ms=new Date(el.dataset.countdown)-Date.now();
+    if(ms<=0){ el.innerHTML='<div class="cd-now">C\'est l\'heure du match !</div>'; return; }
+    const parts={d:Math.floor(ms/864e5), h:Math.floor(ms/36e5)%24, m:Math.floor(ms/6e4)%60, s:Math.floor(ms/1e3)%60};
+    el.querySelectorAll('[data-u]').forEach(b=>{ const v=String(parts[b.dataset.u]).padStart(2,'0'); if(b.textContent!==v) b.textContent=v; });
+  });
+  tick();
+  _countdownTimer=setInterval(tick,1000);
 }
 
 function loaderHTML(text){
