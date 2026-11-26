@@ -278,22 +278,18 @@ function viewFiveDetail(fiveId){
 
   ${future? '' : `
   ${sectionTitle('ball','Les buts',`<span class="count">${goalsTL.length}</span>`)}
-  ${goalsTL.length? `<div class="match-feed">
-    ${goalsTL.map(g=>{
+  ${goalsTL.length? `<div class="goal-grid">
+    ${goalsTL.map((g,i)=>{
       const scorer=getPlayer(g.scorerId);
       const assister=g.assisterId? getPlayer(g.assisterId) : null;
       const video=videoForGoal(g.id);
-      const isA=g.team==='A';
-      const cardHtml=`<div class="feed-card ${isA?'team-a':g.team==='B'?'team-b':'team-none'}">
-        <div class="feed-score-chip">${g.minute!==null&&g.minute!==undefined? g.minute+"' · " : ''}${g.after.a}–${g.after.b}</div>
-        <div class="feed-scorer">${g.isOwnGoal? 'CSC · '+esc(playerName(scorer)) : esc(playerName(scorer))}</div>
-        <div class="feed-assist">${g.isOwnGoal? 'But contre son camp' : (assister? 'Passe de '+esc(playerName(assister)) : 'Sans passe décisive')}</div>
-        ${video? `<button class="play-btn" onclick="playVideo('${video.id}')">${ic('play')}Voir le but</button>` : ''}
-      </div>`;
-      return `<div class="feed-row">
-        <div class="feed-side feed-left">${isA? cardHtml : ''}</div>
-        <div class="feed-center">${g.isOwnGoal? ic('goalNet') : ic('ball')}</div>
-        <div class="feed-side feed-right">${!isA? cardHtml : ''}</div>
+      const side=g.team==='A'?'a':g.team==='B'?'b':'none';
+      const min=g.minute!==null&&g.minute!==undefined? `<span class="gc-min">${g.minute}'</span>` : '';
+      return `<div class="goal-chip team-${side}">
+        <div class="gc-top"><span class="gc-n">${i+1}</span><span class="gc-score num"><b class="${g.team==='A'?'hit':''}">${g.after.a}</b>–<b class="${g.team==='B'?'hit':''}">${g.after.b}</b></span>${min}
+          ${video? `<button class="gc-play" title="Voir le but" aria-label="Voir le but" onclick="playVideo('${video.id}')">${ic('play')}</button>` : ''}</div>
+        <div class="gc-scorer">${g.isOwnGoal? ic('goalNet')+'CSC · ' : ''}${esc(playerName(scorer))}</div>
+        <div class="gc-assist">${g.isOwnGoal? 'Contre son camp' : (assister? 'Passe de '+esc(playerName(assister)) : 'Sans passe décisive')}</div>
       </div>`;
     }).join('')}
   </div>` : emptyState('ball','Aucun but enregistré pour ce match')}
@@ -349,7 +345,7 @@ function lineupPitchHTML(fiveId,teamA,teamB){
     <div class="lu-team-label a"><span class="sb-dot a"></span>Équipe A</div>
     <div class="lu-team-label b">Équipe B<span class="sb-dot b"></span></div>
     ${place(teamA,'a')}${place(teamB,'b')}
-  </div>${ledBoardHTML()}`;
+  </div>`;
 }
 
 /* ============================================================

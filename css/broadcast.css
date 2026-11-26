@@ -261,3 +261,22 @@ body:not(.has-ticker) .channel-bug{bottom:18px;}
 @media(max-width:1023px){.tk-sponsor img{height:20px;}.tk-sponsor .sp-word{font-size:14px;}}
 /* Logos sombres lisibles sur fond bleu nuit : léger contour clair (sans effet sur les logos blancs) */
 .tk-sponsor img,.pb-item img,.ft-item img,.led-item img{filter:drop-shadow(0 0 1px rgba(255,255,255,.9)) drop-shadow(0 0 3px rgba(255,255,255,.35));}
+
+/* Liste des buts : grille sur toute la largeur (moins de hauteur que la frise verticale) */
+.goal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px;}
+.goal-chip{background:var(--surface);border:1px solid var(--border-soft);border-left:3px solid var(--text-faint);border-radius:10px;padding:8px 11px;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.goal-chip.team-a{border-left-color:var(--team-a);}
+.goal-chip.team-b{border-left-color:var(--team-b);}
+.gc-top{display:flex;align-items:center;gap:8px;}
+.gc-n{font-size:11px;font-weight:700;color:var(--text-faint);min-width:16px;}
+.gc-score{font-family:var(--font-num);font-size:16px;font-weight:700;color:var(--text-dim);letter-spacing:.02em;}
+.gc-score b{font-weight:700;}
+.goal-chip.team-a .gc-score b.hit{color:var(--team-a);}
+.goal-chip.team-b .gc-score b.hit{color:var(--team-b);}
+.gc-min{font-size:12px;color:var(--text-dim);}
+.gc-play{margin-left:auto;width:26px;height:26px;border-radius:50%;border:none;background:var(--primary);color:var(--primary-ink);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
+.gc-play .ic{width:12px;height:12px;}
+.gc-scorer{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px;}
+.gc-scorer .ic{width:13px;height:13px;flex-shrink:0;}
+.gc-assist{font-size:12px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+@media (max-width:560px){.goal-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}

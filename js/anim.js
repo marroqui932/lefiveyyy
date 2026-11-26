@@ -9,7 +9,7 @@ const REDUCED_MOTION=window.matchMedia && window.matchMedia('(prefers-reduced-mo
 /* Blocs qui apparaissent en glissant, l'un après l'autre */
 const REVEAL_SEL=[
   '#view > *:not(.grid):not(.kpis):not(.player-cards-grid):not(.tv-grid):not(.home-top)',
-  '.grid > *','.kpis > .kpi','.player-cards-grid > *','.tv-grid > *','.home-top > *','.league tbody tr','.rank-row','.tl-card','.feed-row','.record-row','.duo-row','.admin-item'
+  '.grid > *','.kpis > .kpi','.player-cards-grid > *','.tv-grid > *','.home-top > *','.league tbody tr','.rank-row','.tl-card','.feed-row','.goal-grid > *','.record-row','.duo-row','.admin-item'
 ].join(',');
 let _revealObserver=null;
 function revealBlocks(view){
