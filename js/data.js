@@ -36,6 +36,9 @@ function goalToDb(g){ return { id:g.id, five_id:g.fiveId, goal_order:g.order, sc
   reception_x: g.receptionX===undefined?null:g.receptionX, reception_y: g.receptionY===undefined?null:g.receptionY,
   minute: (g.minute===undefined||g.minute===null||isNaN(g.minute))?null:g.minute }; }
 
+function sponsorFromDb(r){ return { id:r.id, name:r.name, logo:r.logo||null, url:r.url||'', order:r.sort_order||0, isReal:!!r.is_real }; }
+function sponsorToDb(x){ return { id:x.id, name:x.name, logo:x.logo||null, url:x.url||null, sort_order:x.order||0, is_real:!!x.isReal }; }
+
 /* ---------------- Repositories ----------------
    Point d'accès unique aux données. Ici elles parlent à Supabase. */
 const PlayersRepo={
@@ -57,6 +60,12 @@ const GoalsRepo={
   all: async ()=>{ const {data,error}=await sb.from('goals').select('*'); if(error) throw error; return data.map(goalFromDb); },
   save: async (g)=>{ const {error}=await sb.from('goals').upsert(goalToDb(g)); if(error) throw error; return g; },
   remove: async (id)=>{ const {error}=await sb.from('goals').delete().eq('id',id); if(error) throw error; }
+};
+/* Sponsors (table "sponsors", créée par supabase/sponsors.sql) */
+const SponsorsRepo={
+  all: async ()=>{ const {data,error}=await sb.from('sponsors').select('*'); if(error) throw error; return data.map(sponsorFromDb).sort((a,b)=>a.order-b.order || a.name.localeCompare(b.name,'fr')); },
+  save: async (x)=>{ const {error}=await sb.from('sponsors').upsert(sponsorToDb(x)); if(error) throw error; return x; },
+  remove: async (id)=>{ const {error}=await sb.from('sponsors').delete().eq('id',id); if(error) throw error; }
 };
 /* Upload/suppression de fichiers vidéo dans Supabase Storage.
    Les métadonnées (url, chemin, nom, taille) sont stockées directement
@@ -103,7 +112,7 @@ async function logoutAdmin(){
 /* ============================================================
    ÉTAT EN MÉMOIRE (cache rafraîchi après chaque écriture)
    ============================================================ */
-const STATE={ players:[], fives:[], participations:[], goals:[] };
+const STATE={ players:[], fives:[], participations:[], goals:[], sponsors:[], sponsorsReady:true };
 
 async function loadAll(){
   const [players,fives,participations,goals]=await Promise.all([
@@ -113,6 +122,9 @@ async function loadAll(){
   STATE.fives=fives;
   STATE.participations=participations;
   STATE.goals=goals;
+  // Les sponsors sont facultatifs : si la table n'existe pas encore, le site marche quand même.
+  try{ STATE.sponsors=await SponsorsRepo.all(); STATE.sponsorsReady=true; }
+  catch(e){ console.warn('Sponsors indisponibles (table à créer ?)', e.message||e); STATE.sponsors=[]; STATE.sponsorsReady=false; }
   clearStatsCache();
 }
 

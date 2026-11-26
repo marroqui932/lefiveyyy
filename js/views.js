@@ -6,7 +6,7 @@
 /* ---------- Briques communes ---------- */
 const STAT_COLORS={
   green:{color:'#22c55e'}, blue:{color:'#3b82f6'}, purple:{color:'#a78bfa'},
-  gold:{color:'#f5c542'}, red:{color:'#ef4444'}, lime:{color:'#b4f461'}, orange:{color:'#f97316'}
+  gold:{color:'#f5c542'}, red:{color:'#ef4444'}, lime:{color:'#2fa66a'}, orange:{color:'#f97316'}
 };
 const plural=(n,one,many)=>n+' '+(n>1? (many||one+'s') : one);
 function pageHeader(title,sub,actions,eyebrow){
@@ -96,6 +96,7 @@ function tickerBarHTML(){
   });
   if(s.topScorer.length) items.push(`<a class="tk-item" href="#/rankings"><span class="tk-tag">Buteur${s.topScorer.length>1?'s':''}</span>${names(s.topScorer)} · ${s.topScorer[0].value}</a>`);
   if(s.topAssister.length) items.push(`<a class="tk-item" href="#/rankings"><span class="tk-tag">Passeur${s.topAssister.length>1?'s':''}</span>${names(s.topAssister)} · ${s.topAssister[0].value}</a>`);
+  if(sponsorsList().length) items.push(`<span class="tk-item"><span class="tk-tag">Partenaires</span>${sponsorsList().map(x=>esc(x.name)).join(' · ')}</span>`);
   if(s.nextFive) items.push(`<a class="tk-item" href="#/five/${s.nextFive.id}"><span class="tk-tag live">Prochain five</span>${fmtDateLong(s.nextFive.date)}${s.nextFive.timeStart? ' · '+s.nextFive.timeStart : ''}</a>`);
   const row=items.join('<span class="tk-dot"></span>')+'<span class="tk-dot"></span>';
   return `<div class="tk-label">${ic('ball',14)}Résultats</div><div class="tk-viewport"><div class="ticker-track" style="--tk-dur:${items.length*6}s">${row}${row}</div></div>`;
@@ -113,6 +114,7 @@ function studioHeaderHTML(s){
         <h1>LeFive<span>yyy</span></h1>
       </div>
     </div>
+    ${presentedByHTML()}
     <div class="studio-stats">
       <div><b class="num">${s.totalFives}</b><span>five joués</span></div>
       <div><b class="num">${s.totalGoals}</b><span>buts</span></div>
@@ -343,12 +345,12 @@ function lineupPitchHTML(fiveId,teamA,teamB){
       </a>`;
     }).join('');
   };
-  return `<div class="lineup">
+  return `${ledBoardHTML()}<div class="lineup">
     <div class="lu-lines h">${PITCH_LINES_SVG}</div><div class="lu-lines v">${PITCH_LINES_V_SVG}</div>
     <div class="lu-team-label a"><span class="sb-dot a"></span>Équipe A</div>
     <div class="lu-team-label b">Équipe B<span class="sb-dot b"></span></div>
     ${place(teamA,'a')}${place(teamB,'b')}
-  </div>`;
+  </div>${ledBoardHTML()}`;
 }
 
 /* ============================================================
@@ -882,9 +884,10 @@ function viewAdmin(){
   <div class="tabs">
     <div class="tab ${adminTab==='five'?'active':''}" onclick="adminTab='five';render();">${ic('pitch')}Matchs</div>
     <div class="tab ${adminTab==='players'?'active':''}" onclick="adminTab='players';render();">${ic('users')}Joueurs</div>
+    <div class="tab ${adminTab==='sponsors'?'active':''}" onclick="adminTab='sponsors';render();">${ic('star')}Sponsors</div>
     <div class="tab ${adminTab==='backup'?'active':''}" onclick="adminTab='backup';render();">${ic('save')}Sauvegarde</div>
   </div>
-  ${adminTab==='five'? adminFiveTab() : adminTab==='players'? adminPlayersTab() : adminBackupTab()}
+  ${adminTab==='five'? adminFiveTab() : adminTab==='players'? adminPlayersTab() : adminTab==='sponsors'? adminSponsorsTab() : adminBackupTab()}
   `;
 }
 function adminFiveTab(){

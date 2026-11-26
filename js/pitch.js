@@ -178,9 +178,9 @@ function actionsMapHTML(goalPts,assistPts,height){
     const x1=(p.x*PITCH_VB_W).toFixed(1), y1=(p.y*PITCH_VB_H).toFixed(1);
     if(p.goalX!==null && p.goalX!==undefined){
       const gd=goalEntryXY(p.goalX,'top'); // toujours en haut : normalisé comme si on attaquait en haut
-      marks+=`<line x1="${x1}" y1="${y1}" x2="${gd.x.toFixed(1)}" y2="${gd.y.toFixed(1)}" stroke="#b4f461" stroke-width="1.4" opacity=".75"/>`;
+      marks+=`<line x1="${x1}" y1="${y1}" x2="${gd.x.toFixed(1)}" y2="${gd.y.toFixed(1)}" stroke="#2fa66a" stroke-width="1.4" opacity=".75"/>`;
     }
-    marks+=`<circle cx="${x1}" cy="${y1}" r="5" fill="#b4f461" stroke="#fff" stroke-width="1.2" style="cursor:pointer;" onclick="navigate('five/${p.fiveId}')">${p.label?`<title>${esc(p.label)}</title>`:''}</circle>`;
+    marks+=`<circle cx="${x1}" cy="${y1}" r="5" fill="#2fa66a" stroke="#fff" stroke-width="1.2" style="cursor:pointer;" onclick="navigate('five/${p.fiveId}')">${p.label?`<title>${esc(p.label)}</title>`:''}</circle>`;
   });
   return `<div style="border-radius:var(--radius);overflow:hidden;border:1px solid var(--border-soft);background:var(--surface);">
     <svg viewBox="0 0 ${PITCH_VB_W} ${PITCH_VB_H}" width="100%" height="${height||380}" style="display:block;background:#173b2b;">
@@ -188,7 +188,7 @@ function actionsMapHTML(goalPts,assistPts,height){
       ${marks}
     </svg>
     <div class="legend" style="padding:10px 14px;">
-      <span><i style="background:#b4f461"></i>Buts</span>
+      <span><i style="background:#2fa66a"></i>Buts</span>
       <span><i style="background:#a78bfa"></i>Passes décisives</span>
     </div>
   </div>`;

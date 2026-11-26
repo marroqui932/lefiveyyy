@@ -48,6 +48,9 @@ window.submitLoginForm=submitLoginForm;
 window.handleLogoutClick=handleLogoutClick;
 window.toggleMoreSheet=toggleMoreSheet;
 window.optimizeAllPhotos=optimizeAllPhotos;
+window.openSponsorForm=openSponsorForm;
+window.submitSponsorForm=submitSponsorForm;
+window.deleteSponsor=deleteSponsor;
 
 async function init(){
   const view=document.getElementById('view');
