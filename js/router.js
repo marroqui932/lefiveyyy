@@ -120,6 +120,8 @@ async function render(){
   const tk=document.getElementById('tickerBar');
   try{ const html=tickerBarHTML(); if(tk.dataset.html!==html){ tk.innerHTML=html; tk.dataset.html=html; } document.body.classList.toggle('has-ticker',!!html); }catch(e){ console.error(e); }
   startCountdowns(view);
+  const ft=document.getElementById('siteFooter');
+  const ftHtml=siteFooterHTML(); if(ft.dataset.html!==ftHtml){ ft.innerHTML=ftHtml; ft.dataset.html=ftHtml; }
   afterRenderHooks();
 }
 function afterRenderHooks(){

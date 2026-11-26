@@ -4,23 +4,23 @@
    Équipe A = bleu, équipe B = orange, partout.
    ============================================================ */
 :root{
-  --bg:#050d09;
-  --bg-soft:#07130d;
-  --surface:#0c1a13;
-  --surface-2:#112319;
-  --surface-3:#183022;
-  --surface-hover:#10221a;
-  --border:#22402f;
-  --border-soft:#163024;
-  --text:#ecf5ee;
-  --text-dim:#94ab9d;
-  --text-faint:#5e7869;
-  --primary:#b4f461;
-  --primary-ink:#06100b;
-  --primary-soft:rgba(180,244,97,.12);
-  --primary-glow:rgba(180,244,97,.35);
-  --grass-1:#0f3a22;
-  --grass-2:#0d331e;
+  --bg:#0b1526;
+  --bg-soft:#0d182b;
+  --surface:#0f1d33;
+  --surface-2:#13243f;
+  --surface-3:#1a2e4d;
+  --surface-hover:#122340;
+  --border:#25395b;
+  --border-soft:#1b2c47;
+  --text:#eef3fa;
+  --text-dim:#8fa3c0;
+  --text-faint:#61738f;
+  --primary:#2fa66a;
+  --primary-ink:#04170c;
+  --primary-soft:rgba(47,166,106,.12);
+  --primary-glow:rgba(47,166,106,.22);
+  --grass-1:#112241;
+  --grass-2:#0f1f3b;
   --chalk:rgba(255,255,255,.55);
   --team-a:#3b82f6;
   --team-a-soft:rgba(59,130,246,.16);
@@ -53,7 +53,7 @@ button{font-family:inherit;}
 h1,h2,h3{letter-spacing:-.02em;}
 ::-webkit-scrollbar{width:10px;height:10px;}
 ::-webkit-scrollbar-thumb{background:var(--surface-3);border-radius:10px;border:2px solid var(--bg);}
-::selection{background:rgba(180,244,97,.3);}
+::selection{background:rgba(47,166,106,.3);}
 :focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radius:6px;}
 .hidden{display:none !important;}
 .ic{width:18px;height:18px;flex-shrink:0;vertical-align:middle;}
@@ -219,7 +219,7 @@ h1,h2,h3{letter-spacing:-.02em;}
 .sb-result{text-align:center;font-size:12px;font-weight:700;color:var(--text-dim);margin-top:6px;letter-spacing:.04em;text-transform:uppercase;}
 @media(max-width:640px){.scoreboard{gap:10px;}.sb-score{font-size:46px;gap:8px;}.sb-score .sep{font-size:26px;}.sb-players{display:none;}.sb-name{font-size:13.5px;}}
 
-.match-hero{background:radial-gradient(600px 220px at 50% -40%,rgba(180,244,97,.10),transparent 70%),var(--surface);border:1px solid var(--border-soft);border-radius:18px;padding:22px 24px;}
+.match-hero{background:radial-gradient(600px 220px at 50% -40%,rgba(47,166,106,.10),transparent 70%),var(--surface);border:1px solid var(--border-soft);border-radius:18px;padding:22px 24px;}
 .match-hero-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:18px;}
 .match-meta{display:flex;align-items:center;gap:14px;flex-wrap:wrap;color:var(--text-dim);font-size:13px;}
 .match-meta span{display:inline-flex;align-items:center;gap:6px;}
@@ -288,7 +288,7 @@ h1,h2,h3{letter-spacing:-.02em;}
 .player-row .pstats div span{font-size:10px;color:var(--text-faint);text-transform:uppercase;font-weight:600;letter-spacing:.04em;}
 
 /* Profil */
-.profile-head{display:flex;gap:22px;align-items:center;flex-wrap:wrap;background:radial-gradient(500px 200px at 0% 0%,rgba(180,244,97,.08),transparent 70%),var(--surface);border:1px solid var(--border-soft);border-radius:18px;padding:22px;}
+.profile-head{display:flex;gap:22px;align-items:center;flex-wrap:wrap;background:radial-gradient(500px 200px at 0% 0%,rgba(47,166,106,.08),transparent 70%),var(--surface);border:1px solid var(--border-soft);border-radius:18px;padding:22px;}
 .profile-head h1{margin:0;font-size:30px;font-weight:800;line-height:1.1;}
 .profile-head .avatar{width:112px !important;height:112px !important;}
 .profile-main{flex:1;min-width:220px;}
@@ -359,7 +359,7 @@ h1,h2,h3{letter-spacing:-.02em;}
 }
 .play-btn{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:7px;background:var(--primary-soft);border:none;color:var(--primary);font-weight:700;font-size:12px;cursor:pointer;margin-top:4px;}
 .play-btn .ic{width:13px;height:13px;}
-.play-btn:hover{background:rgba(180,244,97,.2);}
+.play-btn:hover{background:rgba(47,166,106,.2);}
 
 /* Ancienne barre d'infos du match (gardée pour compatibilité) */
 .five-info-bar{display:none;}
