@@ -251,11 +251,6 @@ h1,h2,h3{letter-spacing:-.02em;}
 .streak-pill .ic{width:15px;height:15px;color:var(--primary);}
 .form-card{display:flex;flex-wrap:wrap;align-items:center;gap:16px 32px;}
 .form-card .fv{font-family:var(--font-num);font-size:24px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums;}
-.mvp-card{display:flex;align-items:center;gap:14px;cursor:pointer;}
-.mvp-label{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gold);}
-.mvp-label .ic{width:15px;height:15px;}
-.five-mvp{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-dim);}
-.five-mvp .ic{width:14px;height:14px;color:var(--gold);}
 
 /* ---------- Listes classées ---------- */
 .rank-list{display:flex;flex-direction:column;}
@@ -266,7 +261,7 @@ h1,h2,h3{letter-spacing:-.02em;}
 .rank-name{font-weight:600;font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .rank-sub{font-size:12px;color:var(--text-faint);font-weight:500;}
 .rank-val{margin-left:auto;font-family:var(--font-num);font-weight:700;font-size:19px;font-variant-numeric:tabular-nums;white-space:nowrap;}
-.rank-row:first-child .rank-val{color:var(--primary);}
+.rank-row.top .rank-val{color:var(--primary);}
 .leader{display:flex;align-items:center;gap:12px;}
 .leader-name{font-weight:700;font-size:15px;}
 .leader-val{margin-left:auto;font-family:var(--font-num);font-size:30px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;}
@@ -468,4 +463,4 @@ h1,h2,h3{letter-spacing:-.02em;}
 .legend i{display:inline-block;width:9px;height:9px;border-radius:3px;}
 
 @media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important;}}
-.rank-list.plain .rank-row:first-child .rank-val{color:inherit;}
+.rank-list.plain .rank-row .rank-val{color:inherit;}

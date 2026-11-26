@@ -1,40 +1,22 @@
 'use strict';
 /* ============================================================
-   HOMME DU MATCH, FORME, SÉRIES, ELO, ASSOCIATIONS
+   FORME, SÉRIES, ELO (caché, pour les équipes), ASSOCIATIONS
    Tout est calculé à partir de STATE (aucune donnée stockée) et mis en cache
    jusqu'au prochain loadAll().
    ============================================================ */
 
-/* ---------- Homme du match d'un Five ----------
-   Pas de note affichée : on désigne seulement le joueur le plus décisif.
-   points = buts + 0,75 x passes − 0,75 x CSC + 0,5 x buts clutch, comparés à la moyenne du match,
-   + un bonus pour l'équipe gagnante (±0,5, plus ±0,08 par but d'écart, plafonné à ±0,4).
-   Départage : G+A, puis buts, puis écart de buts. */
+/* ---------- Écart de buts de chaque joueur sur un Five (pour la différence de buts moyenne) ---------- */
 function matchContributions(fiveId){
   return cached('contrib:'+fiveId,()=>{
     const five=getFive(fiveId);
     if(!five || isFutureFive(five) || !goalsForFive(fiveId).length) return [];
-    const parts=participationsForFive(fiveId).filter(p=>p.teamId==='A'||p.teamId==='B');
-    if(!parts.length) return [];
-    const wl=fiveGoalsWithScore(fiveId);
     const sc=fiveScore(fiveId);
-    const rows=parts.map(p=>{
-      const s=playerStatsForFive(p.playerId,fiveId);
-      const clutch=wl.filter(g=>g.scorerId===p.playerId && !g.isOwnGoal && clutchKind(g)).length;
+    return participationsForFive(fiveId).filter(p=>p.teamId==='A'||p.teamId==='B').map(p=>{
       const gd= p.teamId==='A'? sc.a-sc.b : sc.b-sc.a;
-      const points=Math.max(0, s.goals + 0.75*s.assists - 0.75*s.ownGoals + 0.5*clutch);
-      return {playerId:p.playerId, teamId:p.teamId, goals:s.goals, assists:s.assists, ownGoals:s.ownGoals, clutch, gd,
-              result: gd>0?'win':gd<0?'loss':'draw', points};
+      return {playerId:p.playerId, teamId:p.teamId, gd};
     });
-    const ref=Math.max(0.5, rows.reduce((a,r)=>a+r.points,0)/rows.length);
-    rows.forEach(r=>{ r.mvpScore=1.3*(r.points/ref) + (r.gd>0?0.5:r.gd<0?-0.5:0) + Math.max(-0.4,Math.min(0.4,0.08*r.gd)); });
-    const best=rows.slice().sort((a,b)=>b.mvpScore-a.mvpScore || (b.goals+b.assists)-(a.goals+a.assists) || b.goals-a.goals || b.gd-a.gd)[0];
-    rows.forEach(r=>{ r.isMvp= r===best; });
-    return rows;
   });
 }
-function fiveMvp(fiveId){ return matchContributions(fiveId).find(r=>r.isMvp) || null; }
-function isMvpOfFive(playerId,fiveId){ const m=fiveMvp(fiveId); return !!(m && m.playerId===playerId); }
 
 /* ---------- Résumé par joueur : notes, forme, séries ---------- */
 function playerForm(playerId){
@@ -43,7 +25,7 @@ function playerForm(playerId){
     const games=fs.perFive.map(pf=>{
       const r=matchContributions(pf.five.id).find(x=>x.playerId===playerId);
       return {five:pf.five, result:pf.result, goals:pf.goals, assists:pf.assists, ga:pf.ga,
-              isMvp:!!(r&&r.isMvp), gd:r? r.gd : null};
+              gd:r? r.gd : null};
     });
     const withGd=games.filter(g=>g.gd!==null);
 
@@ -62,7 +44,6 @@ function playerForm(playerId){
     return {
       games,
       last5:withResult.slice(-5),
-      mvpCount:games.filter(g=>g.isMvp).length,
       plusMinus:withGd.reduce((a,g)=>a+g.gd,0), avgPlusMinus:withGd.length? withGd.reduce((a,g)=>a+g.gd,0)/withGd.length : null,
       winStreak:resStreak(r=>r==='win'), unbeatenStreak:resStreak(r=>r!=='loss'), lossStreak:resStreak(r=>r==='loss'),
       scoringStreak:streak(g=>g.goals>0), gaStreak:streak(g=>g.ga>0)
@@ -72,7 +53,7 @@ function playerForm(playerId){
 function formChipsHTML(last5){
   if(!last5 || !last5.length) return '<span class="page-sub">-</span>';
   const L={win:'V',draw:'N',loss:'D'};
-  return `<span class="form-chips">${last5.map(g=>`<span class="form-chip ${g.result}" title="Five #${pad2(fiveNumber(g.five.id))} · ${fmtDateShort(g.five.date)}${g.isMvp?' · homme du match':''}">${L[g.result]}</span>`).join('')}</span>`;
+  return `<span class="form-chips">${last5.map(g=>`<span class="form-chip ${g.result}" title="Five #${pad2(fiveNumber(g.five.id))} · ${fmtDateShort(g.five.date)}">${L[g.result]}</span>`).join('')}</span>`;
 }
 
 /* ---------- Elo avec historique ----------
@@ -104,40 +85,6 @@ function eloHistory(){
     return {rating, games, peak, byPlayer};
   });
 }
-function eloRanking(){
-  return cached('eloRank',()=>{
-    const h=eloHistory();
-    const rows=STATE.players.filter(p=>h.games[p.id]>0).map(p=>({player:p, value:h.rating[p.id]}));
-    return withRanks(rows.sort((a,b)=>b.value-a.value), v=>Math.round(v));
-  });
-}
-function eloChartSVG(playerId){
-  const hist=eloHistory().byPlayer[playerId]||[];
-  if(!hist.length) return '';
-  const pts=[{label:'Départ', v:ELO_START}].concat(hist.map(h=>({label:'#'+pad2(fiveNumber(h.five.id)), v:h.after, five:h.five, delta:h.delta})));
-  const W=600,H=180,padL=40,padR=16,padT=16,padB=26;
-  const vs=pts.map(p=>p.v);
-  let lo=Math.min(...vs,ELO_START), hi=Math.max(...vs,ELO_START);
-  if(hi-lo<40){ const m=(hi+lo)/2; lo=m-20; hi=m+20; }
-  const X=(i)=>padL+(pts.length===1?0.5:i/(pts.length-1))*(W-padL-padR);
-  const Y=(v)=>padT+(1-(v-lo)/(hi-lo))*(H-padT-padB);
-  const line=pts.map((p,i)=>`${i?'L':'M'} ${X(i).toFixed(1)} ${Y(p.v).toFixed(1)}`).join(' ');
-  const area=`${line} L ${X(pts.length-1).toFixed(1)} ${(H-padB).toFixed(1)} L ${X(0).toFixed(1)} ${(H-padB).toFixed(1)} Z`;
-  const base=Y(ELO_START);
-  const dots=pts.map((p,i)=>`<circle cx="${X(i).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="4" fill="var(--primary)" stroke="var(--bg)" stroke-width="1.5"${p.five?` style="cursor:pointer" onclick="navigate('five/${p.five.id}')"`:''}><title>${p.label} : ${Math.round(p.v)}${p.delta!==undefined?` (${p.delta>=0?'+':''}${Math.round(p.delta)})`:''}</title></circle>`).join('');
-  const labels=pts.map((p,i)=>`<text x="${X(i).toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="10" fill="currentColor" opacity=".7">${p.label}</text>`).join('');
-  return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;color:var(--text-dim);">
-    <defs><linearGradient id="eloFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--primary)" stop-opacity=".28"/><stop offset="1" stop-color="var(--primary)" stop-opacity="0"/></linearGradient></defs>
-    <line x1="${padL}" y1="${base.toFixed(1)}" x2="${W-padR}" y2="${base.toFixed(1)}" stroke="currentColor" opacity=".25" stroke-dasharray="4 4"/>
-    <text x="${padL-6}" y="${(base+3).toFixed(1)}" text-anchor="end" font-size="10" fill="currentColor" opacity=".7">${ELO_START}</text>
-    <text x="${padL-6}" y="${(Y(hi)+3).toFixed(1)}" text-anchor="end" font-size="10" fill="currentColor" opacity=".7">${Math.round(hi)}</text>
-    <text x="${padL-6}" y="${(Y(lo)+3).toFixed(1)}" text-anchor="end" font-size="10" fill="currentColor" opacity=".7">${Math.round(lo)}</text>
-    <path d="${area}" fill="url(#eloFill)"/>
-    <path d="${line}" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linejoin="round"/>
-    ${dots}${labels}
-  </svg>`;
-}
-
 /* ---------- Associations : jouer ENSEMBLE dans la même équipe ---------- */
 function teammateStats(playerId){
   return cached('mates:'+playerId,()=>{
@@ -198,15 +145,14 @@ function rankByForm(metric,{avgOnly=false,asc=false,round=1}={}){
   const f=Math.pow(10,round);
   return withRanks(rows, v=>Math.round(v*f)/f);
 }
-function mvpRanking(){ return rankByForm(f=>f.mvpCount,{round:0}).filter(r=>r.value>0); }
 function plusMinusRanking(){ return rankByForm(f=>f.avgPlusMinus,{avgOnly:true}); }
 
-/* Joueur en forme : le plus de buts + passes sur ses 3 derniers Five (au moins 2 matchs joués),
-   départagé par les victoires sur ces matchs. */
-function playerInForm(){
+/* Joueurs en forme : le plus de buts + passes sur leurs 3 derniers Five (au moins 2 matchs joués),
+   départagés par les victoires sur ces matchs. Les ex-aequo sont tous renvoyés. */
+function playersInForm(){
   const rows=STATE.players.map(p=>{
     const g=playerForm(p.id).games.slice(-3);
     return {player:p, n:g.length, ga:g.reduce((a,x)=>a+x.ga,0), wins:g.filter(x=>x.result==='win').length};
   }).filter(r=>r.n>=2 && r.ga>0).sort((a,b)=>b.ga-a.ga || b.wins-a.wins);
-  return rows[0]||null;
+  return rows.filter(r=>r.ga===rows[0].ga && r.wins===rows[0].wins);
 }

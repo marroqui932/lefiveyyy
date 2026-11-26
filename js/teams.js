@@ -178,10 +178,10 @@ function teamGenBodyHTML(){
   let resultHTML='';
   if(r && r.error) resultHTML=`<div class="notice">${ic("alert")}<div>${esc(r.error)}</div></div>`;
   else if(r && r.variants){
-    const {rating,games}=r.ratings;
-    const teamCol=(ids,label,color,elo)=>`<div style="flex:1;min-width:200px;">
-        <div style="font-weight:800;color:${color};margin-bottom:6px;">${label} <span class="page-sub" style="font-weight:500;">· niveau ${Math.round(elo)}</span></div>
-        ${ids.map(id=>{ const p=getPlayer(id); return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;">${avatarHTML(p,28)}<span style="font-weight:600;font-size:14px;">${esc(playerName(p))}</span><span class="page-sub" style="margin-left:auto;font-size:11.5px;">${Math.round(rating[id])}${games[id]<3?' · ?':''}</span></div>`; }).join('')}
+    // Le niveau (Elo) sert à équilibrer les équipes mais n'est pas affiché
+    const teamCol=(ids,label,color)=>`<div style="flex:1;min-width:200px;">
+        <div style="font-weight:800;color:${color};margin-bottom:6px;">${label}</div>
+        ${ids.map(id=>{ const p=getPlayer(id); return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;">${avatarHTML(p,28)}<span style="font-weight:600;font-size:14px;">${esc(playerName(p))}</span></div>`; }).join('')}
       </div>`;
     resultHTML=`${sectionTitle("shuffle","Propositions")}`+r.variants.map((v,i)=>{
       const pA=Math.round(v.pA*100), pB=100-pA;
@@ -193,7 +193,7 @@ function teamGenBodyHTML(){
         </div>
         <div style="display:flex;gap:18px;flex-wrap:wrap;">${teamCol(v.teamA,"Équipe A",COL_A,v.eloA)}${teamCol(v.teamB,"Équipe B",COL_B,v.eloB)}</div>
         <div class="hint" style="margin-top:10px;line-height:1.6;">
-          Écart de niveau : ${Math.round(Math.abs(v.eloA-v.eloB))} pts · contribution offensive A ${fmtNum(v.offA,2)} / B ${fmtNum(v.offB,2)} (buts+passes par Five)<br>
+          Contribution offensive A ${fmtNum(v.offA,2)} / B ${fmtNum(v.offB,2)} (buts+passes par Five)<br>
           ${v.freshCount} duo${v.freshCount>1?'s':''} qui ne se sont jamais retrouvé${v.freshCount>1?'s':''} dans la même équipe${rep? `<br>Habitués : ${rep}`:''}
         </div>
         ${isAdmin()? `<div style="margin-top:12px;"><button type="button" class="btn btn-sm btn-primary" onclick="useGeneratedTeams(${i})">${ic("plus")}Créer un five avec ces équipes</button></div>` : ''}
@@ -228,7 +228,7 @@ function teamGenBodyHTML(){
   <div style="margin-top:18px;"><button type="button" class="btn btn-primary" onclick="generateTeams()" ${n<2?'disabled':''}>${ic("shuffle")}Générer les équipes</button></div>
   ${resultHTML}
 
-  <div class="hint" style="margin-top:20px;line-height:1.6;">Comment ça marche : chaque joueur a un niveau (classement type Elo calculé sur vos Five : battre une équipe forte rapporte plus, et l'écart de buts compte). Le site teste toutes les répartitions et garde celles où les deux équipes ont un niveau et une force offensive proches, en évitant de remettre ensemble ceux qui jouent tout le temps dans la même équipe (les Five récents comptent plus) et en favorisant les duos qui ne se sont jamais retrouvés ensemble.</div>`;
+  <div class="hint" style="margin-top:20px;line-height:1.6;">Comment ça marche : le site estime le niveau de chaque joueur à partir de vos Five (battre une équipe forte compte plus, et l'écart de buts aussi) ; ce niveau n'est pas affiché. Le site teste toutes les répartitions et garde celles où les deux équipes ont un niveau et une force offensive proches, en évitant de remettre ensemble ceux qui jouent tout le temps dans la même équipe (les Five récents comptent plus) et en favorisant les duos qui ne se sont jamais retrouvés ensemble.</div>`;
 }
 function dashboardStats(){
   const sorted=fivesSorted();
