@@ -83,23 +83,14 @@ const PITCH_LINES_V_SVG=`<svg viewBox="0 0 160 300" preserveAspectRatio="none" f
   <rect x="1" y="1" width="158" height="298" rx="3"/><path d="M1 150h158"/><circle cx="80" cy="150" r="22"/><circle cx="80" cy="150" r="1.6" fill="currentColor"/>
   <path d="M45 1v34h70V1M45 299v-34h70v34"/><path d="M66 1h28M66 299h28" stroke-width="3"/></svg>`;
 
-/* Bandeau défilant en bas d'écran, façon chaîne d'info sport (contenu doublé pour boucler sans à-coup) */
+/* Bandeau défilant en bas d'écran : les sponsors, façon panneaux de bord de terrain.
+   Sans sponsor, le bandeau est masqué. Le contenu est répété pour boucler sans à-coup. */
 function tickerBarHTML(){
-  const done=fivesSorted().filter(f=>!isFutureFive(f) && goalsForFive(f.id).length).reverse().slice(0,8);
-  if(!done.length) return '';
-  const s=dashboardStats();
-  const names=(entries)=>entries.map(e=>esc(playerName(e.player))).join(', ');
-  const items=[];
-  done.forEach(f=>{
-    const sc=fiveScore(f.id);
-    items.push(`<a class="tk-item" href="#/five/${f.id}"><span class="tk-num">#${pad2(fiveNumber(f.id))}</span><span class="tk-score"><span class="a">${sc.a}</span><span class="tk-dash">-</span><span class="b">${sc.b}</span></span>${fmtDateShort(f.date)}</a>`);
-  });
-  if(s.topScorer.length) items.push(`<a class="tk-item" href="#/rankings"><span class="tk-tag">Buteur${s.topScorer.length>1?'s':''}</span>${names(s.topScorer)} · ${s.topScorer[0].value}</a>`);
-  if(s.topAssister.length) items.push(`<a class="tk-item" href="#/rankings"><span class="tk-tag">Passeur${s.topAssister.length>1?'s':''}</span>${names(s.topAssister)} · ${s.topAssister[0].value}</a>`);
-  if(sponsorsList().length) items.push(`<span class="tk-item"><span class="tk-tag">Partenaires</span>${sponsorsList().map(x=>esc(x.name)).join(' · ')}</span>`);
-  if(s.nextFive) items.push(`<a class="tk-item" href="#/five/${s.nextFive.id}"><span class="tk-tag live">Prochain five</span>${fmtDateLong(s.nextFive.date)}${s.nextFive.timeStart? ' · '+s.nextFive.timeStart : ''}</a>`);
-  const row=items.join('<span class="tk-dot"></span>')+'<span class="tk-dot"></span>';
-  return `<div class="tk-label">${ic('ball',14)}Résultats</div><div class="tk-viewport"><div class="ticker-track" style="--tk-dur:${items.length*6}s">${row}${row}</div></div>`;
+  const list=sponsorsList();
+  if(!list.length) return '';
+  let row=''; let n=0;
+  while(n<8){ row+=list.map(x=>sponsorMarkHTML(x,'tk-sponsor')+'<span class="tk-dot"></span>').join(''); n+=list.length; }
+  return `<div class="tk-label">${ic('star',14)}Partenaires</div><div class="tk-viewport"><div class="ticker-track" style="--tk-dur:${Math.max(20,n*4)}s">${row}${row}</div></div>`;
 }
 
 /* En-tête "plateau TV" de l'accueil */
