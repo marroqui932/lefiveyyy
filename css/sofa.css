@@ -1,0 +1,118 @@
+/* ============================================================
+   FICHE DE MATCH FAÇON SOFASCORE : notes /10, compos, homme du match, stats, heatmaps
+   Paliers de couleur des notes : mêmes que Sofascore.
+   ============================================================ */
+.rating{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:20px;padding:0 5px;border-radius:5px;
+  font:700 12px/1 var(--font-num, 'Barlow Condensed', sans-serif);letter-spacing:.02em;color:#fff;background:#a4a9b3;font-variant-numeric:tabular-nums;flex-shrink:0}
+.rating.r-3{background:#dc0c00}.rating.r-6{background:#ed7e07}.rating.r-65{background:#d9af00}
+.rating.r-7{background:#00c424}.rating.r-8{background:#00adc4}.rating.r-9{background:#374df5}.rating.r-none{background:#4a5873}
+.rating.big{min-width:52px;height:34px;font-size:20px;border-radius:8px}
+.rating.avg{min-width:40px}
+
+.sf-motm{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#374df5;color:#fff;flex-shrink:0}
+.sf-motm .ic{width:11px;height:11px;fill:currentColor}
+.sf-ai-tag{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;background:var(--primary);color:var(--primary-ink);border-radius:4px;padding:1px 5px;margin-left:4px}
+
+/* Homme du match */
+.sf-motm-card{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 4px}
+.sf-motm-item{flex:1 1 300px;display:flex;align-items:center;gap:14px;text-align:left;cursor:pointer;color:inherit;font:inherit;
+  background:linear-gradient(100deg,rgba(55,77,245,.22),rgba(55,77,245,.04) 60%),var(--surface);border:1px solid rgba(55,77,245,.45);border-radius:14px;padding:12px 16px}
+.sf-motm-item:hover{border-color:#5a6cff}
+.sf-motm-txt{flex:1;min-width:0}
+.sf-motm-lbl{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#8f9bff}
+.sf-motm-lbl .ic{width:13px;height:13px;fill:currentColor}
+.sf-motm-name{font-family:var(--font-display,inherit);font-size:24px;font-weight:800;font-style:italic;line-height:1.1;text-transform:uppercase}
+.sf-motm-sub{color:var(--text-dim);font-size:13px}
+
+.sf-tabs{margin-top:16px}
+
+/* Compos */
+.sf-lineup-card{background:var(--surface);border:1px solid var(--border-soft);border-radius:16px;overflow:hidden;margin-top:10px}
+.sf-heads{display:grid;grid-template-columns:1fr 1fr}
+.sf-team-head{display:flex;align-items:center;gap:8px;padding:10px 14px;font-size:14px}
+.sf-team-head.b{flex-direction:row-reverse;text-align:right}
+.sf-th-score{font-size:22px;font-weight:800;margin:0 4px}
+.sf-pitch{position:relative;aspect-ratio:300/160;background:repeating-linear-gradient(90deg,#1d5c37 0 10%,#206640 10% 20%);}
+.sf-lines{position:absolute;inset:0;width:100%;height:100%}
+.sf-pl{position:absolute;left:var(--x);top:var(--y);transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:3px;
+  background:none;border:none;color:#fff;cursor:pointer;font:inherit;padding:0;width:96px;animation:sfIn .5s var(--ease,ease) both}
+.sf-pl:hover .sf-av .avatar,.sf-pl:hover .sf-av img{box-shadow:0 0 0 3px #fff}
+@keyframes sfIn{from{opacity:0;transform:translate(-50%,-40%) scale(.9)}to{opacity:1;transform:translate(-50%,-50%)}}
+.sf-av{position:relative;display:block}
+.sf-av>*:first-child{border:2px solid rgba(255,255,255,.9);border-radius:50%}
+.sf-pl.a .sf-av>*:first-child{border-color:var(--team-a)}.sf-pl.b .sf-av>*:first-child{border-color:var(--team-b)}
+.sf-rt{position:absolute;top:-6px;right:-18px;box-shadow:0 1px 4px rgba(0,0,0,.45)}
+.sf-av .sf-motm{position:absolute;top:-8px;left:-10px;box-shadow:0 1px 4px rgba(0,0,0,.45)}
+.sf-evs{position:absolute;bottom:-4px;left:-14px;display:flex;gap:2px}
+.sf-ev{display:inline-flex;align-items:center;gap:1px;background:#fff;color:#0b1526;border-radius:10px;padding:1px 3px;font-size:10px;font-weight:800;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+.sf-ev .ic{width:12px;height:12px}
+.sf-ev.og{background:#dc0c00;color:#fff}
+.sf-gk{position:absolute;bottom:-4px;right:-8px;background:#d9af00;color:#0b1526;font-size:10px;font-weight:800;border-radius:4px;padding:0 4px}
+.sf-nm{font-size:12.5px;font-weight:700;text-shadow:0 1px 3px rgba(0,0,0,.7);max-width:96px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:rgba(0,0,0,.28);padding:1px 6px;border-radius:5px}
+.sf-lists{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--border-soft)}
+.sf-lists>div{padding:6px}.sf-lists>div+div{border-left:1px solid var(--border-soft)}
+.sf-row{display:flex;align-items:center;gap:10px;width:100%;padding:7px 8px;border-radius:9px;background:none;border:none;color:inherit;font:inherit;cursor:pointer;text-align:left}
+.sf-row:hover{background:var(--surface-2)}
+.sf-row-name{flex:1;font-weight:600;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sf-row-ev{display:flex;gap:3px;align-items:center}
+.sf-row .sf-ev{box-shadow:none}
+.sf-pos{font-size:10px;font-weight:800;background:#d9af00;color:#0b1526;border-radius:4px;padding:0 4px;vertical-align:1px}
+.sf-legend{display:flex;flex-wrap:wrap;align-items:center;gap:6px;color:var(--text-dim);font-size:12px;padding:9px 14px;border-top:1px solid var(--border-soft)}
+.sf-legend .ic{width:13px;height:13px;vertical-align:-2px}
+.linklike{background:none;border:none;color:var(--primary);font:inherit;cursor:pointer;padding:0;text-decoration:underline}
+
+/* Fiche du joueur pour le match */
+.sf-sheet-head{display:flex;align-items:center;gap:14px;margin:6px 0 12px}
+.sf-sheet-info{flex:1;min-width:0}
+.sf-sheet-name{font-size:22px;font-weight:800}
+.sf-sheet-body{max-height:62vh;overflow:auto;padding-right:4px}
+.sf-sgrp{background:var(--surface-2);border-radius:12px;padding:8px 12px;margin-bottom:10px}
+.sf-sgrp-t{font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);margin:2px 0 4px}
+.sf-sgrp-t small{text-transform:none;letter-spacing:0;font-weight:500}
+.sf-srow{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid var(--border-soft);font-size:14px}
+.sf-sgrp-t+.sf-srow{border-top:none}
+.sf-srow small{color:var(--text-dim);font-weight:500}
+.sf-heat{width:100%;display:block;border-radius:8px}
+
+/* Statistiques d'équipe */
+.sf-stats-card{background:var(--surface);border:1px solid var(--border-soft);border-radius:16px;padding:12px 18px;margin-top:10px}
+.sf-cmp-head{display:flex;justify-content:space-between;font-weight:700;margin-bottom:6px}
+.sf-cmp-head span{display:inline-flex;align-items:center;gap:6px}
+.sf-cmp{display:grid;grid-template-columns:1fr minmax(130px,auto) 1fr;column-gap:12px;row-gap:5px;padding:8px 0;align-items:center}
+.sf-cmp-l{text-align:center;color:var(--text-dim);font-size:13px}
+.sf-cmp-v{font-weight:700;font-variant-numeric:tabular-nums;color:var(--text-dim)}
+.sf-cmp-v:nth-child(3){text-align:right}
+.sf-cmp-v.lead{color:var(--text,#fff)}
+.sf-cmp-bar{height:6px;background:var(--surface-3,#1a2e4d);border-radius:4px;overflow:hidden;display:flex;grid-row:2}
+.sf-cmp-bar.a{grid-column:1;justify-content:flex-end}.sf-cmp-bar.b{grid-column:3}
+.sf-cmp-bar i{display:block;height:100%;border-radius:4px}
+.sf-cmp-bar.a i{background:var(--team-a)}.sf-cmp-bar.b i{background:var(--team-b)}
+.sf-table th{cursor:pointer;white-space:nowrap}.sf-table th.sorted{color:var(--primary)}
+.sf-table td{white-space:nowrap}
+.sf-table .l-player{display:flex;align-items:center;gap:6px}
+.sf-heat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.sf-heat-card{background:var(--surface);border:1px solid var(--border-soft);border-radius:12px;padding:8px;cursor:pointer;color:inherit;font:inherit;text-align:left}
+.sf-heat-card:hover{border-color:var(--primary)}
+.sf-heat-h{display:flex;align-items:center;gap:6px;font-weight:700;margin:0 2px 6px}
+.sf-heat-h .rating{margin-left:auto}
+
+/* Profil joueur */
+.sf-prof{background:var(--surface);border:1px solid var(--border-soft);border-radius:16px;padding:14px 16px}
+.sf-prof-kpi{display:flex;flex-wrap:wrap;gap:22px;margin-bottom:12px}
+.sf-prof-kpi>div{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+.sf-prof-kpi b{font-size:28px;line-height:34px}.sf-prof-kpi span{color:var(--text-dim);font-size:12.5px}
+.sf-prof-games{display:flex;flex-wrap:wrap;gap:8px}
+.sf-prof-game{display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:10px;padding:6px 10px;color:inherit;font:inherit;cursor:pointer}
+.sf-prof-game span{display:flex;flex-direction:column;font-weight:700;font-size:13px}.sf-prof-game small{color:var(--text-dim);font-weight:500;font-size:11.5px}
+.sf-prof-game:hover{border-color:var(--primary)}
+
+/* Mobile : terrain vertical (A en bas, attaque vers le haut ; B en haut) */
+@media (max-width:700px){
+  .sf-pitch{aspect-ratio:160/300;background:repeating-linear-gradient(0deg,#1d5c37 0 10%,#206640 10% 20%)}
+  .sf-lines{transform:rotate(90deg) scale(1.875,.533);transform-origin:center}
+  .sf-pl{left:var(--y);top:calc(100% - var(--x));width:76px}
+  .sf-pl .avatar,.sf-pl img{width:40px!important;height:40px!important}
+  .sf-nm{font-size:11px;max-width:76px}
+  .sf-lists{grid-template-columns:1fr}.sf-lists>div+div{border-left:none;border-top:1px solid var(--border-soft)}
+  .sf-motm-name{font-size:20px}
+}

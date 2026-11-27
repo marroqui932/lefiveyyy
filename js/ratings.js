@@ -156,3 +156,85 @@ function playersInForm(){
   }).filter(r=>r.n>=2 && r.ga>0).sort((a,b)=>b.ga-a.ga || b.wins-a.wins);
   return rows.filter(r=>r.ga===rows[0].ga && r.wins===rows[0].wins);
 }
+
+/* ============================================================
+   NOTE DU MATCH SUR 10 (façon Sofascore) ET HOMME DU MATCH
+   Comme Sofascore : chaque joueur part de 6,5 et chaque action fait monter ou descendre la note (3,0 à 10,0).
+   - buts +0,45, passes décisives +0,30 (plafonné à +2,4 au total), CSC -0,40 ;
+   - résultat : victoire +0,25, défaite -0,25 ;
+   - si le five a des stats vidéo (IA) : on compare chaque joueur aux autres joueurs du MÊME match
+     (par 60 min jouées) sur touches, passes réussies, précision des passes, récupérations, duels, distance, sprints.
+     Ça ajoute entre -1,2 et +1,2 ;
+   - gardien (repéré par l'IA) : +0,3, puis -0,05 par but encaissé.
+   Calculée à chaque affichage : changer la formule ne demande aucune nouvelle saisie.
+   ============================================================ */
+const RATING_BASE=6.5;
+const RATING_AI_WEIGHTS={touches:.2, passesOk:.25, passAcc:.1, interceptions:.2, duels:.1, dist:.1, sprints:.05};
+function aiStatsForFive(fiveId){ return (STATE.aiStats||{})[fiveId] || null; }
+function aiPlayerStats(fiveId,playerId){
+  const s=aiStatsForFive(fiveId);
+  return s? (s.players||[]).find(p=>p.playerId===playerId) || null : null;
+}
+function matchRatings(fiveId){
+  return cached('ratings:'+fiveId,()=>{
+    const five=getFive(fiveId);
+    if(!five || isFutureFive(five) || !goalsForFive(fiveId).length) return null;
+    const sc=fiveScore(fiveId);
+    const parts=participationsForFive(fiveId).filter(p=>p.teamId==='A'||p.teamId==='B');
+    const ai=aiStatsForFive(fiveId);
+    // part IA : écart à la moyenne du match (en écarts-types), pondéré
+    const z={};
+    if(ai){
+      const feats={};
+      parts.forEach(p=>{ const s=aiPlayerStats(fiveId,p.playerId); if(!s) return;
+        const f=60/Math.max(s.minutes||0,20);
+        feats[p.playerId]={touches:s.touches*f, passesOk:s.passesOk*f, passAcc:(s.passesOk+1)/(s.passesOk+s.passesLost+2),
+          interceptions:s.interceptions*f, duels:(s.duelsWon-s.duelsLost)*f, dist:(s.distanceKm||0)*f, sprints:s.sprints||0}; });
+      const ids=Object.keys(feats);
+      if(ids.length>=4) Object.entries(RATING_AI_WEIGHTS).forEach(([k,w])=>{
+        const vals=ids.map(id=>feats[id][k]); const mu=vals.reduce((a,b)=>a+b,0)/vals.length;
+        const sd=Math.sqrt(vals.reduce((a,b)=>a+(b-mu)*(b-mu),0)/vals.length)||1;
+        ids.forEach(id=>{ z[id]=(z[id]||0)+w*(feats[id][k]-mu)/sd; });
+      });
+    }
+    const out={};
+    parts.forEach(p=>{
+      const st=playerStatsForFive(p.playerId,fiveId);
+      const mine= p.teamId==='A'? sc.a : sc.b, theirs= p.teamId==='A'? sc.b : sc.a;
+      const result= mine>theirs? .25 : mine<theirs? -.25 : 0;
+      const ga=Math.min(2.4, .45*st.goals+.3*st.assists) - .4*st.ownGoals;
+      const aiPart= p.playerId in z? Math.max(-1.2,Math.min(1.2,.9*z[p.playerId])) : 0;
+      const s=aiPlayerStats(fiveId,p.playerId);
+      const gk= s&&s.goalkeeper? .3-.05*theirs : 0;
+      const r=Math.max(3,Math.min(10,RATING_BASE+result+ga+aiPart+gk));
+      out[p.playerId]={rating:Math.round(r*10)/10, teamId:p.teamId, parts:{base:RATING_BASE,result,ga,ai:aiPart,gk}, hasAi:!!s};
+    });
+    return out;
+  });
+}
+/* Homme du match : la meilleure note (tous les ex-aequo) */
+function manOfTheMatch(fiveId){
+  const r=matchRatings(fiveId); if(!r) return [];
+  const best=Math.max(...Object.values(r).map(x=>x.rating));
+  return Object.keys(r).filter(id=>r[id].rating===best);
+}
+function teamAvgRating(fiveId,team){
+  const r=matchRatings(fiveId); if(!r) return null;
+  const v=Object.values(r).filter(x=>x.teamId===team).map(x=>x.rating);
+  return v.length? Math.round(v.reduce((a,b)=>a+b,0)/v.length*100)/100 : null;
+}
+/* Note moyenne d'un joueur sur tous ses fives notés + nombre de fois homme du match */
+function playerRatingSummary(playerId){
+  return cached('rsum:'+playerId,()=>{
+    const games=[];
+    fivesSorted().forEach(f=>{ const r=matchRatings(f.id); if(r && r[playerId]) games.push({five:f, rating:r[playerId].rating, motm:manOfTheMatch(f.id).includes(playerId), hasAi:r[playerId].hasAi}); });
+    const avg=games.length? games.reduce((a,g)=>a+g.rating,0)/games.length : null;
+    return {games, avg:avg===null? null : Math.round(avg*100)/100, motm:games.filter(g=>g.motm).length};
+  });
+}
+/* Couleur de la note (mêmes paliers que Sofascore) */
+function ratingClass(r){
+  if(r===null||r===undefined) return 'r-none';
+  return r>=9? 'r-9' : r>=8? 'r-8' : r>=7? 'r-7' : r>=6.5? 'r-65' : r>=6? 'r-6' : 'r-3';
+}
+function ratingPill(r,cls,dec){ return `<span class="rating ${ratingClass(r)} ${cls||''}">${r===null||r===undefined? '–' : r.toFixed(dec||1)}</span>`; }

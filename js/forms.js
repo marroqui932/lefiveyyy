@@ -480,12 +480,13 @@ function playVideo(goalId){
 async function exportData(){
   toast('Préparation de l\'export...','');
   const payload={
-    version:2,
+    version:3,
     exportedAt:new Date().toISOString(),
     players:STATE.players,
     fives:STATE.fives,
     participations:STATE.participations,
-    goals:STATE.goals
+    goals:STATE.goals,
+    aiStats:STATE.aiStats
   };
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob);
@@ -519,6 +520,8 @@ async function importData(){
     for(const f of data.fives) await FivesRepo.save(f);
     for(const part of (data.participations||[])) await ParticipationsRepo.save(part);
     for(const g of (data.goals||[])) await GoalsRepo.save(g);
+    // stats IA (les anciennes ont disparu avec les fives : suppression en cascade)
+    if(data.aiStats && STATE.aiStatsReady) for(const [fid,s] of Object.entries(data.aiStats)) await AiStatsRepo.save(fid,s);
     await loadAll();
     toast('Import réussi','success');
     render();

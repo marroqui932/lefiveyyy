@@ -272,11 +272,17 @@ function viewFiveDetail(fiveId){
       : scoreboardHTML(fiveId)}
   </div>
 
-  ${sectionTitle('users','Compositions',future? '' : '<span class="count">les plus décisifs devant · rond plein = but, rond vide = passe</span>')}
-  ${lineupPitchHTML(fiveId,teamA,teamB)}
+  ${future? '' : motmCardHTML(fiveId)}
+  ${future? '' : `<div class="tabs sf-tabs">
+    <div class="tab ${fiveTab==='compos'?'active':''}" onclick="setFiveTab('compos')">${ic('users')}Compos et notes</div>
+    <div class="tab ${fiveTab==='stats'?'active':''}" onclick="setFiveTab('stats')">${ic('chart')}Statistiques${aiStatsForFive(fiveId)? ' <span class="sf-ai-tag">vidéo</span>':''}</div>
+    <div class="tab ${fiveTab==='buts'?'active':''}" onclick="setFiveTab('buts')">${ic('ball')}Buts</div>
+  </div>`}
+  ${future||fiveTab==='compos'? `${ledBoardHTML()}${sofaLineupHTML(fiveId)}` : ''}
+  ${!future&&fiveTab==='stats'? fiveStatsTabHTML(fiveId) : ''}
   ${noTeam.length? `<div class="notice">${ic('info')}<div>${noTeam.length} joueur(s) sans équipe : ${noTeam.map(p=>esc(playerName(p.player))).join(', ')}</div></div>` : ''}
 
-  ${future? '' : `
+  ${future||fiveTab!=='buts'? '' : `
   ${sectionTitle('ball','Les buts',`<span class="count">${goalsTL.length}</span>`)}
   ${goalsTL.length? `<div class="goal-grid">
     ${goalsTL.map((g,i)=>{
@@ -496,6 +502,7 @@ function viewPlayerProfile(playerId){
   </div>
 
   ${!fs.matches? `<div style="margin-top:14px;">${emptyState('pitch','Pas encore de match joué','Ses stats apparaîtront après son premier five.')}</div>` : `
+  ${playerRatingsSectionHTML(playerId)}
   ${sectionTitle('chart','Bilan')}
   <div class="card"><div class="stat-strip">
     ${statChip('','Victoires', fs.wins)}
@@ -595,7 +602,9 @@ const LEAGUE_COLS=[
   {k:'assists', l:'Passes', t:'Passes décisives'},
   {k:'ga',      l:'G+A',    t:'Buts + passes décisives', main:true},
   {k:'avgGA',   l:'G+A/m',  t:'Buts + passes par match', f:v=>fmtNum(v,2).replace('.',',')},
-  {k:'pm',      l:'Diff/m', t:'Écart moyen au score quand il joue', f:v=>v===null?'–':(v>0?'+':'')+v.toFixed(1).replace('.',',')}
+  {k:'pm',      l:'Diff/m', t:'Écart moyen au score quand il joue', f:v=>v===null?'–':(v>0?'+':'')+v.toFixed(1).replace('.',',')},
+  {k:'avgRating', l:'Note', t:'Note moyenne sur 10 (façon Sofascore)', f:v=>ratingPill(v,'avg',2)},
+  {k:'motm',    l:'HdM',    t:'Homme du match'}
 ];
 let leagueSort='ga';
 function setLeagueSort(k){ leagueSort=k; render(); }
@@ -603,7 +612,8 @@ function viewRankings(){
   const col=LEAGUE_COLS.find(c=>c.k===leagueSort)||LEAGUE_COLS[7];
   const rows=STATE.players.filter(p=>playerFullStats(p.id).matches>0).map(p=>{
     const fs=playerFullStats(p.id), fm=playerForm(p.id);
-    return {player:p, fm, v:Object.assign({}, fs, {pm:fm.avgPlusMinus})};
+    const rs=playerRatingSummary(p.id);
+    return {player:p, fm, v:Object.assign({}, fs, {pm:fm.avgPlusMinus, avgRating:rs.avg, motm:rs.motm})};
   });
   const val=r=>{ const v=r.v[col.k]; return v===null||v===undefined? -Infinity : v; };
   rows.sort((a,b)=> col.asc? val(a)-val(b) : val(b)-val(a) || b.v.ga-a.v.ga || a.player.name.localeCompare(b.player.name,'fr'));
@@ -879,10 +889,11 @@ function viewAdmin(){
   <div class="tabs">
     <div class="tab ${adminTab==='five'?'active':''}" onclick="adminTab='five';render();">${ic('pitch')}Matchs</div>
     <div class="tab ${adminTab==='players'?'active':''}" onclick="adminTab='players';render();">${ic('users')}Joueurs</div>
+    <div class="tab ${adminTab==='ai'?'active':''}" onclick="adminTab='ai';render();">${ic('chart')}Stats IA</div>
     <div class="tab ${adminTab==='sponsors'?'active':''}" onclick="adminTab='sponsors';render();">${ic('star')}Sponsors</div>
     <div class="tab ${adminTab==='backup'?'active':''}" onclick="adminTab='backup';render();">${ic('save')}Sauvegarde</div>
   </div>
-  ${adminTab==='five'? adminFiveTab() : adminTab==='players'? adminPlayersTab() : adminTab==='sponsors'? adminSponsorsTab() : adminBackupTab()}
+  ${adminTab==='five'? adminFiveTab() : adminTab==='players'? adminPlayersTab() : adminTab==='ai'? adminAiTab() : adminTab==='sponsors'? adminSponsorsTab() : adminBackupTab()}
   `;
 }
 function adminFiveTab(){

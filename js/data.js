@@ -67,6 +67,14 @@ const SponsorsRepo={
   save: async (x)=>{ const {error}=await sb.from('sponsors').upsert(sponsorToDb(x)); if(error) throw error; return x; },
   remove: async (id)=>{ const {error}=await sb.from('sponsors').delete().eq('id',id); if(error) throw error; }
 };
+/* Stats de l'analyse vidéo (table "ai_stats", créée par supabase/ai_stats.sql) : une ligne par five */
+const AiStatsRepo={
+  all: async ()=>{ const {data,error}=await sb.from('ai_stats').select('*'); if(error) throw error;
+    const out={}; data.forEach(r=>{ out[r.five_id]=Object.assign({}, r.data, {updatedAt:r.updated_at}); }); return out; },
+  save: async (fiveId,data)=>{ const clean=Object.assign({},data); delete clean.updatedAt;
+    const {error}=await sb.from('ai_stats').upsert({five_id:fiveId, data:clean, updated_at:new Date().toISOString()}); if(error) throw error; },
+  remove: async (fiveId)=>{ const {error}=await sb.from('ai_stats').delete().eq('five_id',fiveId); if(error) throw error; }
+};
 /* Upload/suppression de fichiers vidéo dans Supabase Storage.
    Les métadonnées (url, chemin, nom, taille) sont stockées directement
    sur la ligne du but concerné (colonnes video_* de la table goals). */
@@ -112,7 +120,7 @@ async function logoutAdmin(){
 /* ============================================================
    ÉTAT EN MÉMOIRE (cache rafraîchi après chaque écriture)
    ============================================================ */
-const STATE={ players:[], fives:[], participations:[], goals:[], sponsors:[], sponsorsReady:true };
+const STATE={ players:[], fives:[], participations:[], goals:[], sponsors:[], sponsorsReady:true, aiStats:{}, aiStatsReady:true };
 
 async function loadAll(){
   const [players,fives,participations,goals]=await Promise.all([
@@ -125,6 +133,9 @@ async function loadAll(){
   // Les sponsors sont facultatifs : si la table n'existe pas encore, le site marche quand même.
   try{ STATE.sponsors=await SponsorsRepo.all(); STATE.sponsorsReady=true; }
   catch(e){ console.warn('Sponsors indisponibles (table à créer ?)', e.message||e); STATE.sponsors=[]; STATE.sponsorsReady=false; }
+  // Stats IA : facultatives aussi (table ai_stats à créer avec supabase/ai_stats.sql)
+  try{ STATE.aiStats=await AiStatsRepo.all(); STATE.aiStatsReady=true; }
+  catch(e){ console.warn('Stats IA indisponibles (table à créer ?)', e.message||e); STATE.aiStats={}; STATE.aiStatsReady=false; }
   clearStatsCache();
 }
 
