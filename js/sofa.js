@@ -28,7 +28,7 @@ function motmCardHTML(fiveId){
   return `<div class="sf-motm-card">${ids.map(id=>{
     const p=getPlayer(id), st=playerStatsForFive(id,fiveId), ai=aiPlayerStats(fiveId,id);
     const bits=[st.goals? plural(st.goals,'but'):'', st.assists? plural(st.assists,'passe D','passes D'):'',
-      ai&&ai.distanceKm? fmtDec(ai.distanceKm,2)+' km':'', ai&&ai.maxSpeedKmh? fmtDec(ai.maxSpeedKmh)+' km/h':''].filter(Boolean);
+      ai&&ai.distanceKm? fmtDec(ai.distanceKm,2)+' km':''].filter(Boolean);
     return `<button class="sf-motm-item" onclick="openPlayerMatchSheet('${fiveId}','${id}')">
       ${avatarHTML(p,64)}
       <div class="sf-motm-txt"><div class="sf-motm-lbl">${ic('star')}Homme du match${ids.length>1?' (ex-aequo)':''}</div>
@@ -121,7 +121,7 @@ function openPlayerMatchSheet(fiveId,playerId){
     body+=grp('Ballon', row('Touches de balle',ai.touches)+row('Passes réussies',ai.passesOk)+row('Passes reçues',ai.passesReceived)
       +row('Passes interceptées',ai.passesLost)+row('Précision des passes',tried? Math.round(100*ai.passesOk/tried)+' %':'–', tried? `${ai.passesOk}/${tried}`:''));
     body+=grp('Défense', row('Récupérations',ai.interceptions)+row('Duels gagnés',`${ai.duelsWon}/${ai.duelsWon+ai.duelsLost}`));
-    body+=grp('Physique', row('Distance parcourue',fmtDec(ai.distanceKm,2)+' km')+row('Vitesse max',fmtDec(ai.maxSpeedKmh)+' km/h', ai.maxSpeedMinute!=null? `à la ${ai.maxSpeedMinute}e`:'')
+    body+=grp('Physique', row('Distance parcourue',fmtDec(ai.distanceKm,2)+' km')
       +row('Sprints (> 20 km/h)',ai.sprints));
     body+=`<div class="sf-sgrp"><div class="sf-sgrp-t">Heatmap <small>(attaque vers la droite →)</small></div>${heatmapSVG(ai.heatmap)}</div>`;
   } else body+=`<div class="notice" style="margin-top:10px;">${ic('info')}<div>Pas de stats vidéo pour ce five, donc pas de note ni d'homme du match.</div></div>`;
@@ -166,7 +166,6 @@ function fiveStatsTabHTML(fiveId){
   const ai=aiStatsForFive(fiveId), r=matchRatings(fiveId)||{}, parts=playersInFive(fiveId).filter(p=>p.teamId);
   const sc=fiveScore(fiveId);
   const sum=(t,k)=>parts.filter(p=>p.teamId===t).reduce((a,p)=>{ const s=aiPlayerStats(fiveId,p.playerId); return a+(s&&s[k]||0); },0);
-  const mx=(t,k)=>Math.max(0,...parts.filter(p=>p.teamId===t).map(p=>{ const s=aiPlayerStats(fiveId,p.playerId); return s&&s[k]||0; }));
   const cmp=(l,a,b,fmt,pct)=>{ const f=fmt||(v=>v); const tot=(a+b)||1;
     return `<div class="sf-cmp"><div class="sf-cmp-v ${a>b?'lead':''}">${f(a)}</div><div class="sf-cmp-l">${l}</div><div class="sf-cmp-v ${b>a?'lead':''}">${f(b)}</div>
       <div class="sf-cmp-bar a"><i style="width:${(pct? a : 100*a/tot)}%"></i></div><div class="sf-cmp-bar b"><i style="width:${(pct? b : 100*b/tot)}%"></i></div></div>`; };
@@ -181,12 +180,12 @@ function fiveStatsTabHTML(fiveId){
       +cmp('Touches de balle',sum('A','touches'),sum('B','touches'))+cmp('Passes réussies',sum('A','passesOk'),sum('B','passesOk'))
       +cmp('Passes interceptées',sum('A','passesLost'),sum('B','passesLost'))+cmp('Récupérations',sum('A','interceptions'),sum('B','interceptions'))
       +cmp('Duels gagnés',sum('A','duelsWon'),sum('B','duelsWon'))+cmp('Distance totale',sum('A','distanceKm'),sum('B','distanceKm'),v=>fmtDec(v,1)+' km')
-      +cmp('Sprints',sum('A','sprints'),sum('B','sprints'))+cmp('Vitesse max',mx('A','maxSpeedKmh'),mx('B','maxSpeedKmh'),v=>fmtDec(v)+' km/h');
+      +cmp('Sprints',sum('A','sprints'),sum('B','sprints'));
   }
   if(!ai && fiveStatsSort==='rating') fiveStatsSort='goals';
   const cols=(ai? [{k:'rating',l:'Note'}] : []).concat([{k:'goals',l:'Buts'},{k:'assists',l:'Passes D'}])
     .concat(ai? [{k:'minutes',l:'Min.',d:0},{k:'touches',l:'Touches'},{k:'passesOk',l:'Passes'},{k:'acc',l:'% passes'},{k:'interceptions',l:'Récup.'},
-      {k:'duelsWon',l:'Duels G'},{k:'distanceKm',l:'Km',d:2},{k:'maxSpeedKmh',l:'Vmax',d:1},{k:'sprints',l:'Sprints'}] : []);
+      {k:'duelsWon',l:'Duels G'},{k:'distanceKm',l:'Km',d:2},{k:'sprints',l:'Sprints'}] : []);
   const rows=parts.map(p=>{ const st=playerStatsForFive(p.playerId,fiveId), s=aiPlayerStats(fiveId,p.playerId)||{};
     const tried=(s.passesOk||0)+(s.passesLost||0);
     return {p, v:Object.assign({}, s, {rating:r[p.playerId]? r[p.playerId].rating : null, goals:st.goals, assists:st.assists, acc:tried? Math.round(100*s.passesOk/tried):null})}; });
@@ -210,13 +209,11 @@ function playerRatingsSectionHTML(playerId){
   const s=playerRatingSummary(playerId);
   if(!s.games.length) return '';   // aucun five analysé en vidéo pour ce joueur
   const aiGames=s.games.filter(g=>g.hasAi).map(g=>({g, a:aiPlayerStats(g.five.id,playerId)}));
-  const best=k=>aiGames.length? Math.max(...aiGames.map(x=>x.a[k]||0)) : null;
   return `${sectionTitle('star','Notes de match')}
   <div class="sf-prof">
     <div class="sf-prof-kpi"><div>${ratingPill(s.avg,'big',2)}<span>Note moyenne</span></div>
       <div><b class="num">${s.motm}</b><span>Homme du match</span></div>
-      ${aiGames.length? `<div><b class="num">${fmtDec(best('maxSpeedKmh'))}</b><span>Vitesse max (km/h)</span></div>
-      <div><b class="num">${fmtDec(aiGames.reduce((a,x)=>a+(x.a.distanceKm||0),0)/aiGames.length,2)}</b><span>Km par match analysé</span></div>`:''}</div>
+      ${aiGames.length? `      <div><b class="num">${fmtDec(aiGames.reduce((a,x)=>a+(x.a.distanceKm||0),0)/aiGames.length,2)}</b><span>Km par match analysé</span></div>`:''}</div>
     <div class="sf-prof-games">${s.games.slice().reverse().map(g=>`<button class="sf-prof-game" onclick="openPlayerMatchSheet('${g.five.id}','${playerId}')">
       <span>${fiveTitle(g.five.id)}<small>${fmtDateShort(g.five.date)}${g.hasAi? ' · vidéo':''}</small></span>${g.motm? motmBadge():''}${ratingPill(g.rating)}</button>`).join('')}</div>
   </div>`;
