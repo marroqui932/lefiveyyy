@@ -163,14 +163,14 @@ function playersInForm(){
    - buts +0,45, passes décisives +0,30 (plafonné à +2,4 au total), CSC -0,40 ;
    - résultat : victoire +0,25, défaite -0,25 ;
    - si le five a des stats vidéo (IA) : on compare chaque joueur aux autres joueurs du MÊME match
-     (par 60 min jouées) sur touches, passes réussies, précision des passes, récupérations, duels, distance, sprints.
+     (par 60 min jouées) sur touches, passes réussies, précision des passes, récupérations, duels, distance.
      Ça ajoute entre -1,2 et +1,2 ;
    - gardien (repéré par l'IA) : +0,3, puis -0,05 par but encaissé.
    Seuls les fives qui ont des stats vidéo (IA) sont notés : sans elles, la note ne dirait presque rien.
    Calculée à chaque affichage : changer la formule ne demande aucune nouvelle saisie.
    ============================================================ */
 const RATING_BASE=6.5;
-const RATING_AI_WEIGHTS={touches:.2, passesOk:.25, passAcc:.1, interceptions:.2, duels:.1, dist:.1, sprints:.05};
+const RATING_AI_WEIGHTS={touches:.2, passesOk:.25, passAcc:.1, interceptions:.2, duels:.1, dist:.15};
 function aiStatsForFive(fiveId){ return (STATE.aiStats||{})[fiveId] || null; }
 function aiPlayerStats(fiveId,playerId){
   const s=aiStatsForFive(fiveId);
@@ -190,7 +190,7 @@ function matchRatings(fiveId){
       parts.forEach(p=>{ const s=aiPlayerStats(fiveId,p.playerId); if(!s) return;
         const f=60/Math.max(s.minutes||0,20);
         feats[p.playerId]={touches:s.touches*f, passesOk:s.passesOk*f, passAcc:(s.passesOk+1)/(s.passesOk+s.passesLost+2),
-          interceptions:s.interceptions*f, duels:(s.duelsWon-s.duelsLost)*f, dist:(s.distanceKm||0)*f, sprints:s.sprints||0}; });
+          interceptions:s.interceptions*f, duels:(s.duelsWon-s.duelsLost)*f, dist:(s.distanceKm||0)*f}; });
       const ids=Object.keys(feats);
       if(ids.length>=4) Object.entries(RATING_AI_WEIGHTS).forEach(([k,w])=>{
         const vals=ids.map(id=>feats[id][k]); const mu=vals.reduce((a,b)=>a+b,0)/vals.length;

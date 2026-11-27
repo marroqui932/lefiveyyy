@@ -121,8 +121,7 @@ function openPlayerMatchSheet(fiveId,playerId){
     body+=grp('Ballon', row('Touches de balle',ai.touches)+row('Passes réussies',ai.passesOk)+row('Passes reçues',ai.passesReceived)
       +row('Passes interceptées',ai.passesLost)+row('Précision des passes',tried? Math.round(100*ai.passesOk/tried)+' %':'–', tried? `${ai.passesOk}/${tried}`:''));
     body+=grp('Défense', row('Récupérations',ai.interceptions)+row('Duels gagnés',`${ai.duelsWon}/${ai.duelsWon+ai.duelsLost}`));
-    body+=grp('Physique', row('Distance parcourue',fmtDec(ai.distanceKm,2)+' km')
-      +row('Sprints (> 20 km/h)',ai.sprints));
+    body+=grp('Physique', row('Distance parcourue',fmtDec(ai.distanceKm,2)+' km'));
     body+=`<div class="sf-sgrp"><div class="sf-sgrp-t">Heatmap <small>(attaque vers la droite →)</small></div>${heatmapSVG(ai.heatmap)}</div>`;
   } else body+=`<div class="notice" style="margin-top:10px;">${ic('info')}<div>Pas de stats vidéo pour ce five, donc pas de note ni d'homme du match.</div></div>`;
   if(rr){
@@ -146,7 +145,7 @@ function openRatingInfo(){
   <ul><li><b>Buts</b> +0,45 chacun, <b>passes décisives</b> +0,30 (au plus +2,4 au total), <b>contre son camp</b> -0,40</li>
   <li><b>Résultat</b> : victoire +0,25, défaite -0,25</li>
   <li><b>Stats vidéo</b> (quand le five a été analysé) : comparaison avec les autres joueurs du même match, ramenée à 60 min jouées :
-   touches, passes réussies, précision, récupérations, duels, distance, sprints. Entre -1,2 et +1,2.</li>
+   touches, passes réussies, précision, récupérations, duels, distance. Entre -1,2 et +1,2.</li>
   <li><b>Gardien</b> : +0,3, puis -0,05 par but encaissé</li></ul>
   <p>Couleurs : ${[3,6,6.5,7,8,9].map(v=>ratingPill(v)).join(' ')} · <b>Homme du match</b> = meilleure note (tous les ex-aequo).</p>
   <p>Seuls les fives analysés en vidéo ont une note : avec juste les buts et passes décisives, elle ne voudrait pas dire grand-chose.</p></div>`);
@@ -179,13 +178,12 @@ function fiveStatsTabHTML(fiveId){
     teamCmp=cmp('Possession',ai.possession.A||0,ai.possession.B||0,v=>v+' %',true)+teamCmp
       +cmp('Touches de balle',sum('A','touches'),sum('B','touches'))+cmp('Passes réussies',sum('A','passesOk'),sum('B','passesOk'))
       +cmp('Passes interceptées',sum('A','passesLost'),sum('B','passesLost'))+cmp('Récupérations',sum('A','interceptions'),sum('B','interceptions'))
-      +cmp('Duels gagnés',sum('A','duelsWon'),sum('B','duelsWon'))+cmp('Distance totale',sum('A','distanceKm'),sum('B','distanceKm'),v=>fmtDec(v,1)+' km')
-      +cmp('Sprints',sum('A','sprints'),sum('B','sprints'));
+      +cmp('Duels gagnés',sum('A','duelsWon'),sum('B','duelsWon'))+cmp('Distance totale',sum('A','distanceKm'),sum('B','distanceKm'),v=>fmtDec(v,1)+' km');
   }
   if(!ai && fiveStatsSort==='rating') fiveStatsSort='goals';
   const cols=(ai? [{k:'rating',l:'Note'}] : []).concat([{k:'goals',l:'Buts'},{k:'assists',l:'Passes D'}])
     .concat(ai? [{k:'minutes',l:'Min.',d:0},{k:'touches',l:'Touches'},{k:'passesOk',l:'Passes'},{k:'acc',l:'% passes'},{k:'interceptions',l:'Récup.'},
-      {k:'duelsWon',l:'Duels G'},{k:'distanceKm',l:'Km',d:2},{k:'sprints',l:'Sprints'}] : []);
+      {k:'duelsWon',l:'Duels G'},{k:'distanceKm',l:'Km',d:2}] : []);
   const rows=parts.map(p=>{ const st=playerStatsForFive(p.playerId,fiveId), s=aiPlayerStats(fiveId,p.playerId)||{};
     const tried=(s.passesOk||0)+(s.passesLost||0);
     return {p, v:Object.assign({}, s, {rating:r[p.playerId]? r[p.playerId].rating : null, goals:st.goals, assists:st.assists, acc:tried? Math.round(100*s.passesOk/tried):null})}; });
@@ -296,7 +294,7 @@ function playerAiAggregate(playerId){
       s.heatmap.forEach((r,y)=>r.forEach((v,x)=>{ heat[y][x]+=v; })); });
     if(heat){ const mx=Math.max(1,...heat.flat()); heat=heat.map(r=>r.map(v=>Math.round(100*v/mx))); }
     const tried=sum('passesOk')+sum('passesLost'), duels=sum('duelsWon')+sum('duelsLost');
-    return {n, heat, km:n? sum('distanceKm')/n : 0, sprints:n? sum('sprints')/n : 0, touches:n? sum('touches')/n : 0,
+    return {n, heat, km:n? sum('distanceKm')/n : 0, touches:n? sum('touches')/n : 0,
       passes:n? sum('passesOk')/n : 0, passPct:tried? 100*sum('passesOk')/tried : 0, recov:n? sum('interceptions')/n : 0,
       duelPct:duels? 100*sum('duelsWon')/duels : 0};
   });
@@ -312,7 +310,6 @@ function compareRatingsSectionHTML(a,b){
       <div class="sf-cmp-ratings"><div>${ratingPill(rA.avg,'big',2)}</div><div class="cmp-label">Note moyenne</div><div>${ratingPill(rB.avg,'big',2)}</div></div>
       ${compareBar('Homme du match', rA.motm, rB.motm)}
       ${compareBar('Km par match', A.km, B.km, 2, ' km')}
-      ${compareBar('Sprints par match', A.sprints, B.sprints, 1)}
       ${compareBar('Touches par match', A.touches, B.touches, 0)}
     </div>
     <div class="card">
