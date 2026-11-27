@@ -35,20 +35,20 @@
 .sf-pitch{position:relative;aspect-ratio:300/160;background:repeating-linear-gradient(90deg,#1d5c37 0 10%,#206640 10% 20%);}
 .sf-lines{position:absolute;inset:0;width:100%;height:100%}
 .sf-pl{position:absolute;left:var(--x);top:var(--y);transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:3px;
-  background:none;border:none;color:#fff;cursor:pointer;font:inherit;padding:0;width:96px;animation:sfIn .5s var(--ease,ease) both}
+  background:none;border:none;color:#fff;cursor:pointer;font:inherit;padding:0;width:116px;animation:sfIn .5s var(--ease,ease) both}
 .sf-pl:hover .sf-av .avatar,.sf-pl:hover .sf-av img{box-shadow:0 0 0 3px #fff}
 @keyframes sfIn{from{opacity:0;transform:translate(-50%,-40%) scale(.9)}to{opacity:1;transform:translate(-50%,-50%)}}
 .sf-av{position:relative;display:block}
 .sf-av>*:first-child{border:2px solid rgba(255,255,255,.9);border-radius:50%}
 .sf-pl.a .sf-av>*:first-child{border-color:var(--team-a)}.sf-pl.b .sf-av>*:first-child{border-color:var(--team-b)}
-.sf-rt{position:absolute;top:-6px;right:-18px;box-shadow:0 1px 4px rgba(0,0,0,.45)}
+.sf-rt{position:absolute;top:-9px;right:-26px;min-width:38px;height:24px;font-size:15.5px;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,.5);text-shadow:0 1px 1px rgba(0,0,0,.35)}
 .sf-av .sf-motm{position:absolute;top:-8px;left:-10px;box-shadow:0 1px 4px rgba(0,0,0,.45)}
 .sf-evs{position:absolute;bottom:-4px;left:-14px;display:flex;gap:2px}
-.sf-ev{display:inline-flex;align-items:center;gap:1px;background:#fff;color:#0b1526;border-radius:10px;padding:1px 3px;font-size:10px;font-weight:800;box-shadow:0 1px 3px rgba(0,0,0,.4)}
-.sf-ev .ic{width:12px;height:12px}
+.sf-ev{display:inline-flex;align-items:center;gap:1px;background:#fff;color:#0b1526;border-radius:10px;padding:1px 4px;font-size:11.5px;font-weight:800;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+.sf-ev .ic{width:14px;height:14px}
 .sf-ev.og{background:#dc0c00;color:#fff}
 .sf-gk{position:absolute;bottom:-4px;right:-8px;background:#d9af00;color:#0b1526;font-size:10px;font-weight:800;border-radius:4px;padding:0 4px}
-.sf-nm{font-size:12.5px;font-weight:700;text-shadow:0 1px 3px rgba(0,0,0,.7);max-width:96px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:rgba(0,0,0,.28);padding:1px 6px;border-radius:5px}
+.sf-nm{font-size:14px;font-weight:700;text-shadow:0 1px 3px rgba(0,0,0,.7);max-width:116px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:rgba(0,0,0,.28);padding:1px 6px;border-radius:5px}
 .sf-lists{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--border-soft)}
 .sf-lists>div{padding:6px}.sf-lists>div+div{border-left:1px solid var(--border-soft)}
 .sf-row{display:flex;align-items:center;gap:10px;width:100%;padding:7px 8px;border-radius:9px;background:none;border:none;color:inherit;font:inherit;cursor:pointer;text-align:left}
@@ -110,9 +110,22 @@
 @media (max-width:700px){
   .sf-pitch{aspect-ratio:160/300;background:repeating-linear-gradient(0deg,#1d5c37 0 10%,#206640 10% 20%)}
   .sf-lines{transform:rotate(90deg) scale(1.875,.533);transform-origin:center}
-  .sf-pl{left:var(--y);top:calc(100% - var(--x));width:76px}
-  .sf-pl .avatar,.sf-pl img{width:40px!important;height:40px!important}
-  .sf-nm{font-size:11px;max-width:76px}
+  .sf-pl{left:var(--y);top:calc(100% - var(--x));width:84px}
+  .sf-pl .avatar,.sf-pl img{width:46px!important;height:46px!important}
+  .sf-nm{font-size:12px;max-width:80px}
+  .sf-rt{min-width:32px;height:21px;font-size:13.5px;right:-20px}
   .sf-lists{grid-template-columns:1fr}.sf-lists>div+div{border-left:none;border-top:1px solid var(--border-soft)}
   .sf-motm-name{font-size:20px}
 }
+
+/* La taille des joueurs suit la largeur du terrain (lisible sur grand écran comme sur portable) */
+.sf-pitch{container-type:inline-size}
+@container (min-width:701px){
+  .sf-pl{width:clamp(110px,14cqw,150px)}
+  .sf-pl .sf-av>*:first-child,.sf-pl .sf-av>img{width:clamp(56px,6.6cqw,78px)!important;height:clamp(56px,6.6cqw,78px)!important}
+  .sf-rt{font-size:clamp(15px,1.75cqw,20px);height:clamp(23px,2.6cqw,29px);min-width:clamp(36px,4.2cqw,46px);right:clamp(-30px,-2.6cqw,-24px)}
+  .sf-nm{font-size:clamp(13.5px,1.5cqw,16px);max-width:clamp(110px,14cqw,150px)}
+  .sf-ev{font-size:clamp(11px,1.2cqw,13px)}.sf-ev .ic{width:clamp(13px,1.4cqw,16px);height:clamp(13px,1.4cqw,16px)}
+  .sf-av .sf-motm{width:clamp(18px,2cqw,24px);height:clamp(18px,2cqw,24px)}
+}
+.sf-row .rating{font-size:14px;height:23px;min-width:38px}

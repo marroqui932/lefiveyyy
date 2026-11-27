@@ -49,11 +49,11 @@ function lineupSlots(rows,fiveId){
     const gk=rows.slice().sort((a,b)=>(ai(b).goalkeeper-ai(a).goalkeeper)||ai(a).avgPos[0]-ai(b).avgPos[0])[0];
     const out=rows.filter(r=>r!==gk).sort((a,b)=>ai(a).avgPos[0]-ai(b).avgPos[0]);
     const mids=[out[1],out[2]].sort((a,b)=>ai(a).avgPos[1]-ai(b).avgPos[1]);
-    return [{r:gk,x:7,y:50,gk:!!ai(gk).goalkeeper},{r:out[0],x:19,y:50},{r:mids[0],x:31,y:24},{r:mids[1],x:31,y:76},{r:out[3],x:43,y:50}];
+    return [{r:gk,x:7,y:50,gk:!!ai(gk).goalkeeper},{r:out[0],x:19,y:50},{r:mids[0],x:31,y:30},{r:mids[1],x:31,y:70},{r:out[3],x:43,y:50}];
   }
   const ga=r=>{ const s=playerStatsForFive(r.playerId,fiveId); return s.goals*2+s.assists; };
   const sorted=rows.slice().sort((a,b)=>ga(a)-ga(b) || playerName(a.player).localeCompare(playerName(b.player)));
-  if(n===5) return [{r:sorted[0],x:9,y:50},{r:sorted[1],x:24,y:28},{r:sorted[2],x:24,y:72},{r:sorted[3],x:39,y:30},{r:sorted[4],x:39,y:70}];
+  if(n===5) return [{r:sorted[0],x:9,y:50},{r:sorted[1],x:24,y:33},{r:sorted[2],x:24,y:67},{r:sorted[3],x:39,y:34},{r:sorted[4],x:39,y:66}];
   const cols=lineupColumns(n), out=[]; let k=0;
   cols.forEach((c,ci)=>{ for(let j=0;j<c;j++) out.push({r:sorted[k++], x:9+(cols.length===1?.5:ci/(cols.length-1))*32, y:(j+1)/(c+1)*100}); });
   return out;
@@ -65,7 +65,7 @@ function sofaLineupHTML(fiveId){
     const p=s.r, st=playerStatsForFive(p.playerId,fiveId), rt=r&&r[p.playerId]? r[p.playerId].rating : null;
     const x= side==='a'? s.x : 100-s.x, y= side==='a'? s.y : 100-s.y;
     return `<button class="sf-pl ${side}" style="--x:${x}%;--y:${y}%" onclick="openPlayerMatchSheet('${fiveId}','${p.playerId}')">
-      <span class="sf-av">${avatarHTML(p.player,50)}${rt!==null? ratingPill(rt,'sf-rt'):''}${motm.includes(p.playerId)? motmBadge():''}
+      <span class="sf-av">${avatarHTML(p.player,60)}${rt!==null? ratingPill(rt,'sf-rt'):''}${motm.includes(p.playerId)? motmBadge():''}
         <span class="sf-evs">${evIconsHTML(st)}</span>${s.gk? '<span class="sf-gk">G</span>':''}</span>
       <span class="sf-nm">${esc(playerName(p.player))}</span></button>`;
   };
