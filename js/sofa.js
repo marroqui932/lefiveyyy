@@ -283,3 +283,47 @@ async function deleteAiStats(fiveId){
   try{ await AiStatsRepo.remove(fiveId); await loadAll(); toast('Stats vidéo supprimées','success'); render(); }
   catch(e){ toast('Erreur : '+e.message,'error'); }
 }
+
+/* ---------- comparateur : notes et stats vidéo de deux joueurs ---------- */
+/* Moyennes par match sur les fives analysés en vidéo où le joueur a joué ; heatmap = somme de ces fives (attaque vers la droite). */
+function playerAiAggregate(playerId){
+  return cached('aiagg:'+playerId,()=>{
+    const games=fivesSorted().map(f=>({f, s:aiPlayerStats(f.id,playerId)})).filter(x=>x.s);
+    const n=games.length, sum=k=>games.reduce((a,x)=>a+(x.s[k]||0),0);
+    let heat=null;
+    games.forEach(({s})=>{ if(!s.heatmap||!s.heatmap.length) return;
+      if(!heat) heat=s.heatmap.map(r=>r.map(()=>0));
+      s.heatmap.forEach((r,y)=>r.forEach((v,x)=>{ heat[y][x]+=v; })); });
+    if(heat){ const mx=Math.max(1,...heat.flat()); heat=heat.map(r=>r.map(v=>Math.round(100*v/mx))); }
+    const tried=sum('passesOk')+sum('passesLost'), duels=sum('duelsWon')+sum('duelsLost');
+    return {n, heat, km:n? sum('distanceKm')/n : 0, sprints:n? sum('sprints')/n : 0, touches:n? sum('touches')/n : 0,
+      passes:n? sum('passesOk')/n : 0, passPct:tried? 100*sum('passesOk')/tried : 0, recov:n? sum('interceptions')/n : 0,
+      duelPct:duels? 100*sum('duelsWon')/duels : 0};
+  });
+}
+function compareRatingsSectionHTML(a,b){
+  const rA=playerRatingSummary(a.id), rB=playerRatingSummary(b.id), A=playerAiAggregate(a.id), B=playerAiAggregate(b.id);
+  if(!A.n && !B.n) return `${sectionTitle('star','Notes et stats vidéo')}<div class="notice">${ic('info')}<div>Aucun des deux n'a encore joué un five analysé en vidéo : pas de note ni de stats vidéo à comparer.</div></div>`;
+  const missing=[A.n? '' : a.name, B.n? '' : b.name].filter(Boolean);
+  return `${sectionTitle('star','Notes et stats vidéo',`<span class="count">moyennes par five analysé en vidéo (${A.n} pour ${esc(a.name)}, ${B.n} pour ${esc(b.name)})</span>`)}
+  ${missing.length? `<div class="notice">${ic('info')}<div>${missing.map(esc).join(' et ')} n'a pas encore joué de five analysé en vidéo.</div></div>` : ''}
+  <div class="grid grid-2">
+    <div class="card">
+      <div class="sf-cmp-ratings"><div>${ratingPill(rA.avg,'big',2)}</div><div class="cmp-label">Note moyenne</div><div>${ratingPill(rB.avg,'big',2)}</div></div>
+      ${compareBar('Homme du match', rA.motm, rB.motm)}
+      ${compareBar('Km par match', A.km, B.km, 2, ' km')}
+      ${compareBar('Sprints par match', A.sprints, B.sprints, 1)}
+      ${compareBar('Touches par match', A.touches, B.touches, 0)}
+    </div>
+    <div class="card">
+      ${compareBar('Passes réussies par match', A.passes, B.passes, 1)}
+      ${compareBar('% de passes réussies', A.passPct, B.passPct, 0, '%')}
+      ${compareBar('Récupérations par match', A.recov, B.recov, 1)}
+      ${compareBar('% de duels gagnés', A.duelPct, B.duelPct, 0, '%')}
+    </div>
+  </div>
+  ${A.heat||B.heat? `<div class="grid grid-2" style="margin-top:12px;">
+    <div class="sf-heat-card"><div class="sf-heat-h"><span class="sb-dot a"></span>Heatmap de ${esc(a.name)}</div>${A.heat? heatmapSVG(A.heat) : '<div class="page-sub">Pas de five analysé</div>'}</div>
+    <div class="sf-heat-card"><div class="sf-heat-h"><span class="sb-dot b"></span>Heatmap de ${esc(b.name)}</div>${B.heat? heatmapSVG(B.heat) : '<div class="page-sub">Pas de five analysé</div>'}</div>
+  </div><div class="hint">Heatmaps : chaque joueur attaque vers la droite →</div>` : ''}`;
+}

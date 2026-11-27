@@ -805,6 +805,7 @@ function viewCompare(idA,idB){
       </div>
     </div>
   </div>
+  ${compareRatingsSectionHTML(a,b)}
   ${sectionTitle('swords','Face à face et ensemble')}
   <div class="grid grid-2">
     <div class="card">${h2hA? `<div class="card-title">${ic('swords')}Adversaires · ${plural(h2hA.matches,'match','matchs')}</div>

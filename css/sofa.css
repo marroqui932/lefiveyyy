@@ -129,3 +129,6 @@
   .sf-av .sf-motm{width:clamp(18px,2cqw,24px);height:clamp(18px,2cqw,24px)}
 }
 .sf-row .rating{font-size:14px;height:23px;min-width:38px}
+.sf-cmp-ratings{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:6px 0 10px}
+.sf-cmp-ratings>div:last-child{text-align:right}
+.sf-cmp-ratings .cmp-label{text-align:center}
