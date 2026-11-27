@@ -166,6 +166,7 @@ function playersInForm(){
      (par 60 min jouées) sur touches, passes réussies, précision des passes, récupérations, duels, distance, sprints.
      Ça ajoute entre -1,2 et +1,2 ;
    - gardien (repéré par l'IA) : +0,3, puis -0,05 par but encaissé.
+   Seuls les fives qui ont des stats vidéo (IA) sont notés : sans elles, la note ne dirait presque rien.
    Calculée à chaque affichage : changer la formule ne demande aucune nouvelle saisie.
    ============================================================ */
 const RATING_BASE=6.5;
@@ -178,7 +179,7 @@ function aiPlayerStats(fiveId,playerId){
 function matchRatings(fiveId){
   return cached('ratings:'+fiveId,()=>{
     const five=getFive(fiveId);
-    if(!five || isFutureFive(five) || !goalsForFive(fiveId).length) return null;
+    if(!five || isFutureFive(five) || !goalsForFive(fiveId).length || !aiStatsForFive(fiveId)) return null;
     const sc=fiveScore(fiveId);
     const parts=participationsForFive(fiveId).filter(p=>p.teamId==='A'||p.teamId==='B');
     const ai=aiStatsForFive(fiveId);

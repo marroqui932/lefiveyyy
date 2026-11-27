@@ -77,14 +77,14 @@ function sofaLineupHTML(fiveId){
       const st=playerStatsForFive(p.playerId,fiveId), ai=aiPlayerStats(fiveId,p.playerId);
       return `<button class="sf-row" onclick="openPlayerMatchSheet('${fiveId}','${p.playerId}')">${avatarHTML(p.player,34)}
         <span class="sf-row-name">${esc(playerName(p.player))}${ai&&ai.goalkeeper? ' <span class="sf-pos">G</span>':''}</span>
-        <span class="sf-row-ev">${motm.includes(p.playerId)? motmBadge():''}${evIconsHTML(st)}</span>${ratingPill(rt)}</button>`; }).join('');
+        <span class="sf-row-ev">${motm.includes(p.playerId)? motmBadge():''}${evIconsHTML(st)}</span>${rt!==null? ratingPill(rt):''}</button>`; }).join('');
   return `<div class="sf-lineup-card">
     <div class="sf-heads">${head('A')}${head('B')}</div>
     <div class="sf-pitch">${PITCH_LINES_SVG_SOFA}
       ${lineupSlots(team('A'),fiveId).map(s=>node(s,'a')).join('')}${lineupSlots(team('B'),fiveId).map(s=>node(s,'b')).join('')}</div>
     <div class="sf-lists"><div>${list('A')}</div><div>${list('B')}</div></div>
-    <div class="sf-legend">${ic('ball')} but · ${ic('boot')} passe décisive · ${motmBadge()} homme du match · clique sur un joueur pour sa fiche du match ·
-      <button class="linklike" onclick="openRatingInfo()">comment est calculée la note ?</button></div>
+    <div class="sf-legend">${ic('ball')} but · ${ic('boot')} passe décisive · ${r? `${motmBadge()} homme du match · ` : ''}clique sur un joueur pour sa fiche du match ·
+      ${r? `<button class="linklike" onclick="openRatingInfo()">comment est calculée la note ?</button>` : 'notes et homme du match : seulement pour les fives analysés en vidéo'}</div>
   </div>`;
 }
 const PITCH_LINES_SVG_SOFA=`<svg class="sf-lines" viewBox="0 0 300 160" preserveAspectRatio="none"><g fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1.2">
@@ -95,11 +95,11 @@ const PITCH_LINES_SVG_SOFA=`<svg class="sf-lines" viewBox="0 0 300 160" preserve
 function heatmapSVG(grid,flip){
   if(!grid||!grid.length) return '<div class="page-sub">Pas de heatmap</div>';
   const H=grid.length, W=grid[0].length, cell=10, id='hm'+Math.random().toString(36).slice(2,8);
-  const col=v=> v>75?'#dc0c00': v>50?'#ed7e07': v>28?'#d9af00':'#2fd06a';
+  const col=v=> v>90?'#dc0c00': v>76?'#ed7e07': v>58?'#d9af00':'#2fd06a';   // valeurs déjà en racine carrée (cf. export_site.py)
   let dots='';
-  grid.forEach((row,y)=>row.forEach((v,x)=>{ if(v<12) return;
+  grid.forEach((row,y)=>row.forEach((v,x)=>{ if(v<28) return;
     const X= flip? W-1-x : x, Y= flip? H-1-y : y;
-    dots+=`<circle cx="${X*cell+5}" cy="${Y*cell+5}" r="${8+v/12}" fill="${col(v)}" fill-opacity="${Math.min(.9,(v-12)/70)}"/>`; }));
+    dots+=`<circle cx="${X*cell+5}" cy="${Y*cell+5}" r="${8+v/12}" fill="${col(v)}" fill-opacity="${Math.min(.85,(v-28)/62)}"/>`; }));
   return `<svg class="sf-heat" viewBox="0 0 ${W*cell} ${H*cell}"><defs><filter id="${id}" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="7"/></filter></defs>
     <rect width="100%" height="100%" fill="#173a2a"/><g filter="url(#${id})">${dots}</g>
     <g fill="none" stroke="rgba(255,255,255,.35)" stroke-width="1"><rect x="1" y="1" width="${W*cell-2}" height="${H*cell-2}"/><line x1="${W*cell/2}" y1="0" x2="${W*cell/2}" y2="${H*cell}"/>
@@ -124,7 +124,7 @@ function openPlayerMatchSheet(fiveId,playerId){
     body+=grp('Physique', row('Distance parcourue',fmtDec(ai.distanceKm,2)+' km')+row('Vitesse max',fmtDec(ai.maxSpeedKmh)+' km/h', ai.maxSpeedMinute!=null? `à la ${ai.maxSpeedMinute}e`:'')
       +row('Sprints (> 20 km/h)',ai.sprints));
     body+=`<div class="sf-sgrp"><div class="sf-sgrp-t">Heatmap <small>(attaque vers la droite →)</small></div>${heatmapSVG(ai.heatmap)}</div>`;
-  } else body+=`<div class="notice" style="margin-top:10px;">${ic('info')}<div>Pas encore de stats vidéo pour ce five : la note ne tient compte que des buts, passes décisives et du résultat.</div></div>`;
+  } else body+=`<div class="notice" style="margin-top:10px;">${ic('info')}<div>Pas de stats vidéo pour ce five, donc pas de note ni d'homme du match.</div></div>`;
   if(rr){
     const pp=rr.parts;
     body+=grp('Calcul de la note', row('Départ',fmtDec(pp.base,1))+row('Résultat',sign(pp.result))+row('Buts et passes D',sign(pp.ga))
@@ -148,7 +148,8 @@ function openRatingInfo(){
   <li><b>Stats vidéo</b> (quand le five a été analysé) : comparaison avec les autres joueurs du même match, ramenée à 60 min jouées :
    touches, passes réussies, précision, récupérations, duels, distance, sprints. Entre -1,2 et +1,2.</li>
   <li><b>Gardien</b> : +0,3, puis -0,05 par but encaissé</li></ul>
-  <p>Couleurs : ${[3,6,6.5,7,8,9].map(v=>ratingPill(v)).join(' ')} · <b>Homme du match</b> = meilleure note (tous les ex-aequo).</p></div>`);
+  <p>Couleurs : ${[3,6,6.5,7,8,9].map(v=>ratingPill(v)).join(' ')} · <b>Homme du match</b> = meilleure note (tous les ex-aequo).</p>
+  <p>Seuls les fives analysés en vidéo ont une note : avec juste les buts et passes décisives, elle ne voudrait pas dire grand-chose.</p></div>`);
 }
 function aiReliabilityNote(ai){
   if(!ai) return '';
@@ -182,7 +183,8 @@ function fiveStatsTabHTML(fiveId){
       +cmp('Duels gagnés',sum('A','duelsWon'),sum('B','duelsWon'))+cmp('Distance totale',sum('A','distanceKm'),sum('B','distanceKm'),v=>fmtDec(v,1)+' km')
       +cmp('Sprints',sum('A','sprints'),sum('B','sprints'))+cmp('Vitesse max',mx('A','maxSpeedKmh'),mx('B','maxSpeedKmh'),v=>fmtDec(v)+' km/h');
   }
-  const cols=[{k:'rating',l:'Note'},{k:'goals',l:'Buts'},{k:'assists',l:'Passes D'}]
+  if(!ai && fiveStatsSort==='rating') fiveStatsSort='goals';
+  const cols=(ai? [{k:'rating',l:'Note'}] : []).concat([{k:'goals',l:'Buts'},{k:'assists',l:'Passes D'}])
     .concat(ai? [{k:'minutes',l:'Min.',d:0},{k:'touches',l:'Touches'},{k:'passesOk',l:'Passes'},{k:'acc',l:'% passes'},{k:'interceptions',l:'Récup.'},
       {k:'duelsWon',l:'Duels G'},{k:'distanceKm',l:'Km',d:2},{k:'maxSpeedKmh',l:'Vmax',d:1},{k:'sprints',l:'Sprints'}] : []);
   const rows=parts.map(p=>{ const st=playerStatsForFive(p.playerId,fiveId), s=aiPlayerStats(fiveId,p.playerId)||{};
@@ -206,7 +208,7 @@ function fiveStatsTabHTML(fiveId){
 /* ---------- profil joueur : notes ---------- */
 function playerRatingsSectionHTML(playerId){
   const s=playerRatingSummary(playerId);
-  if(!s.games.length) return '';
+  if(!s.games.length) return '';   // aucun five analysé en vidéo pour ce joueur
   const aiGames=s.games.filter(g=>g.hasAi).map(g=>({g, a:aiPlayerStats(g.five.id,playerId)}));
   const best=k=>aiGames.length? Math.max(...aiGames.map(x=>x.a[k]||0)) : null;
   return `${sectionTitle('star','Notes de match')}
