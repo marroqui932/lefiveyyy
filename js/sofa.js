@@ -214,7 +214,13 @@ function playerRatingsSectionHTML(playerId){
       ${aiGames.length? `      <div><b class="num">${fmtDec(aiGames.reduce((a,x)=>a+(x.a.distanceKm||0),0)/aiGames.length,2)}</b><span>Km par match analysé</span></div>`:''}</div>
     <div class="sf-prof-games">${s.games.slice().reverse().map(g=>`<button class="sf-prof-game" onclick="openPlayerMatchSheet('${g.five.id}','${playerId}')">
       <span>${fiveTitle(g.five.id)}<small>${fmtDateShort(g.five.date)}${g.hasAi? ' · vidéo':''}</small></span>${g.motm? motmBadge():''}${ratingPill(g.rating)}</button>`).join('')}</div>
-  </div>`;
+  </div>${profileHeatHTML(playerId)}`;
+}
+function profileHeatHTML(playerId){
+  const A=playerAiAggregate(playerId);
+  if(!A.heat) return '';
+  const sub= A.heatN>1? `${A.heatN} fives analysés combinés${A.heatMin? ` · ${Math.round(A.heatMin)} min de jeu`:''}` : `1 five analysé${A.heatMin? ` · ${Math.round(A.heatMin)} min de jeu`:''}`;
+  return `<div class="sf-heat-card sf-prof-heat"><div class="sf-heat-h">Heatmap <small>${sub} · attaque vers la droite →</small></div>${heatmapSVG(A.heat)}</div>`;
 }
 
 /* ---------- admin : import des stats de l'analyse vidéo ---------- */
@@ -283,18 +289,37 @@ async function deleteAiStats(fiveId){
 }
 
 /* ---------- comparateur : notes et stats vidéo de deux joueurs ---------- */
-/* Moyennes par match sur les fives analysés en vidéo où le joueur a joué ; heatmap = somme de ces fives (attaque vers la droite). */
+/* Moyennes par match sur les fives analysés en vidéo où le joueur a joué.
+   Heatmap combinée = secondes passées sur chaque m² additionnées sur tous ses fives (un five de 60 min pèse 2x plus
+   qu'un five de 30 min), puis même échelle que l'analyse : lissage, racine carrée, plafond au 97e centile. */
+function scaleHeatSeconds(g){
+  const H=g.length, W=g[0].length, sig=1.2, R=4, k=[];
+  for(let i=-R;i<=R;i++) k.push(Math.exp(-i*i/(2*sig*sig)));
+  const blur=(src,dx,dy)=>src.map((r,y)=>r.map((_,x)=>{ let a=0,w=0;
+    for(let i=-R;i<=R;i++){ const yy=y+i*dy, xx=x+i*dx; if(yy<0||yy>=H||xx<0||xx>=W) continue; a+=src[yy][xx]*k[i+R]; w+=k[i+R]; }
+    return a/w; }));
+  const b=blur(blur(g,1,0),0,1), flat=b.flat().sort((x,y)=>x-y);
+  const p97=flat[Math.min(flat.length-1, Math.floor(0.97*(flat.length-1)))]||1e-9;
+  return b.map(r=>r.map(v=>Math.round(100*Math.min(1, Math.sqrt(v/p97)))));
+}
 function playerAiAggregate(playerId){
   return cached('aiagg:'+playerId,()=>{
     const games=fivesSorted().map(f=>({f, s:aiPlayerStats(f.id,playerId)})).filter(x=>x.s);
     const n=games.length, sum=k=>games.reduce((a,x)=>a+(x.s[k]||0),0);
-    let heat=null;
-    games.forEach(({s})=>{ if(!s.heatmap||!s.heatmap.length) return;
-      if(!heat) heat=s.heatmap.map(r=>r.map(()=>0));
-      s.heatmap.forEach((r,y)=>r.forEach((v,x)=>{ heat[y][x]+=v; })); });
-    if(heat){ const mx=Math.max(1,...heat.flat()); heat=heat.map(r=>r.map(v=>Math.round(100*v/mx))); }
+    let heat=null, heatMin=0;
+    const withSec=games.filter(x=>x.s.heatSeconds&&x.s.heatSeconds.length);
+    if(withSec.length && withSec.length===games.filter(x=>x.s.heatmap&&x.s.heatmap.length).length){
+      const tot=withSec[0].s.heatSeconds.map(r=>r.map(()=>0));
+      withSec.forEach(({s})=>s.heatSeconds.forEach((r,y)=>r.forEach((v,x)=>{ tot[y][x]+=v; heatMin+=v/60; })));
+      heat=scaleHeatSeconds(tot);
+    } else {   // anciens imports sans les secondes : chaque five compte pareil
+      games.forEach(({s})=>{ if(!s.heatmap||!s.heatmap.length) return;
+        if(!heat) heat=s.heatmap.map(r=>r.map(()=>0));
+        s.heatmap.forEach((r,y)=>r.forEach((v,x)=>{ heat[y][x]+=v; })); });
+      if(heat){ const mx=Math.max(1,...heat.flat()); heat=heat.map(r=>r.map(v=>Math.round(100*v/mx))); }
+    }
     const tried=sum('passesOk')+sum('passesLost'), duels=sum('duelsWon')+sum('duelsLost');
-    return {n, heat, km:n? sum('distanceKm')/n : 0, touches:n? sum('touches')/n : 0,
+    return {n, heat, heatMin, heatN:games.filter(x=>x.s.heatmap&&x.s.heatmap.length).length, km:n? sum('distanceKm')/n : 0, touches:n? sum('touches')/n : 0,
       passes:n? sum('passesOk')/n : 0, passPct:tried? 100*sum('passesOk')/tried : 0, recov:n? sum('interceptions')/n : 0,
       duelPct:duels? 100*sum('duelsWon')/duels : 0};
   });
